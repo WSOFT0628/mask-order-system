@@ -6,7 +6,7 @@
 2. 開啟專案 `jhyxaalondrfcybpsgdk`。
 3. 前往 **SQL Editor**。
 4. 建立 **New query**。
-5. 開啟 `口罩訂購助手v2.0.0-Supabase初始化.sql`，複製全部內容。
+5. 在 GitHub 儲存庫開啟 `supabase/初始化.sql`，複製全部內容。
 6. 貼到 SQL Editor，按下 **Run**。
 7. 確認沒有紅色錯誤訊息。
 
@@ -14,10 +14,13 @@
 
 Magic Link 必須回到實際發布的網站，不能以本機 `file://` 作為正式同步網址。
 
-1. 先將 `口罩訂購助手v2.0.0.html` 發布到 GitHub Pages 或其他 HTTPS 網站。
-2. 在 Supabase 前往 **Authentication → URL Configuration**。
-3. 將正式網址設為 **Site URL**。
-4. 將同一網址加入 **Redirect URLs**。
+1. 在 GitHub 儲存庫開啟 **Settings → Pages**。
+2. Source 選擇 **Deploy from a branch**。
+3. Branch 選擇 **main**、資料夾選擇 **/(root)**，再按 **Save**。
+4. 等待網站發布完成，正式網址為 `https://wsoft0628.github.io/mask-order-system/`。
+5. 在 Supabase 前往 **Authentication → URL Configuration**。
+6. 將正式網址設為 **Site URL**。
+7. 將同一網址加入 **Redirect URLs**。
 
 ## 3. 建立第一位管理員
 
