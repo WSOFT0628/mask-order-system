@@ -115,7 +115,7 @@ async function initCloud(){readAuthCallback();if(!cloudSession){setSyncStatus('�
 async function renderCloudMembers(){try{let rows=await cloudRpc('mask_list_members');$('#cloudMemberList').innerHTML=rows.map(m=>`<div class="member-row"><div><b>${m.email||'未提供 Email'}</b><div class="mini">${m.approved?'已核准':'待核准'}</div></div><select data-mrole="${m.user_id}"><option value="staff" ${m.role==='staff'?'selected':''}>一般人員</option><option value="viewer" ${m.role==='viewer'?'selected':''}>檢視</option><option value="admin" ${m.role==='admin'?'selected':''}>管理員</option></select><button class="btn light" data-mappr="${m.user_id}" data-approved="${m.approved}">${m.approved?'取消核准':'核准'}</button></div>`).join('');$$('[data-mappr]').forEach(b=>b.onclick=()=>confirmToast(`確定${b.dataset.approved==='true'?'取消核准':'核准'}此帳號？`,async()=>{let role=$(`[data-mrole="${b.dataset.mappr}"]`).value;await cloudRpc('mask_update_member',{p_user_id:b.dataset.mappr,p_approved:b.dataset.approved!=='true',p_role:role});showToast('成員權限已更新。');renderCloudMembers()}))}catch(e){console.error(e)}}
 function cloudLogout(){cloudSession=null;cloudReady=false;localStorage.removeItem(CLOUD_SESSION_KEY);clearInterval(cloudPollTimer);setSyncStatus('尚未登入');$('#cloudLogin').classList.remove('hidden');showToast('已登出雲端帳號，本機資料仍保留。')}
 $('#sendMagicLink').onclick=sendCloudMagicLink;$('#useOffline').onclick=()=>{$('#cloudLogin').classList.add('hidden');setSyncStatus('離線使用','busy');showToast('目前使用本機資料，尚未與其他裝置同步。')};$('#cloudAccount').onclick=()=>cloudSession?go('settings'):$('#cloudLogin').classList.remove('hidden');$('#cloudLogout').onclick=cloudLogout;
-bindCustomer();renderChips();renderProducts();renderCart();renderOrders();renderSettings();notifyTemplateExpiry();initCloud();
+bindCustomer();renderChips();renderProducts();renderCart();renderOrders();renderSettings();initCloud();
 </script>
 <script>
 /* v2.0.1：登入遮罩開啟時，所有 showToast() 訊息仍須清楚顯示。 */
@@ -299,7 +299,7 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 $('#cloudLogin .cloud-card>p').textContent='請使用管理員建立的帳號，或既有 Email 帳號與密碼登入。登入後可在手機與電腦同步資料。';
 $('#sendMagicLink').classList.add('hidden');let magicHint=$('#sendMagicLink').previousElementSibling;if(magicHint?.classList.contains('helper'))magicHint.classList.add('hidden');$('#cloudLogin .notice').classList.add('hidden');
 if(!$('#cloudLogin').classList.contains('hidden'))$('#toastStack').innerHTML='';
-notifyTemplateExpiry=function(){if(!cloudReady||!$('#cloudLogin').classList.contains('hidden'))return;let t=getActiveTemplate();if(!t?.expiry)return;let status=templateStatus(t),level=status==='已過期'?'danger':'warn',title=status==='已過期'?'價目表已過期':'價目表即將到期';if(status==='已過期'||status.includes('剩')){showToast(`${title}：${t.name}（${status}）`,{type:level,duration:6000});cloudRpc('mask_create_notification',{p_event_key:`price-expiry-${t.id}-${t.expiry}`,p_level:level,p_title:title,p_body:`${t.name}｜${status}`,p_link:'settings',p_audience_role:'admin'}).then(()=>loadNotifications(true)).catch(()=>{})}};
+notifyTemplateExpiry=function(){if(!cloudReady||!$('#cloudLogin').classList.contains('hidden'))return;let t=getActiveTemplate();if(!t?.expiry)return;let status=templateStatus(t),level=status==='已過期'?'danger':'warn',title=status==='已過期'?'價目表已過期':'價目表即將到期';if(status==='已過期'||status.includes('剩')){cloudRpc('mask_create_notification',{p_event_key:`price-expiry-${t.id}-${t.expiry}`,p_level:level,p_title:title,p_body:`${t.name}｜${status}`,p_link:'settings',p_audience_role:'admin'}).then(()=>loadNotifications(true)).catch(()=>{})}};
 
 // 自訂帳號登入由 Edge Function 安全解析，不向瀏覽器公開 Auth Email。
 passwordLogin=async function(){let account=$('#cloudEmail').value.trim().toLowerCase(),password=$('#cloudPassword').value;if(!account||!password)return showToast('請輸入帳號或 Email 與密碼。',{type:'warn'});try{let d;if(account.includes('@'))d=await sbRequest('/auth/v1/token?grant_type=password',{auth:false,body:{email:account,password}});else{let res=await fetch(SUPABASE_URL+'/functions/v1/mask-user-admin',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({action:'login',username:account,password})}),data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'LOGIN_FAILED');d=data}saveCloudSession(d);showToast('登入成功，正在同步資料。');await initCloud();setTimeout(()=>{checkPasswordRequirement();notifyTemplateExpiry();loadNotifications()},500)}catch(e){console.error(e);showToast('登入失敗：帳號、Email、密碼或帳號狀態不正確。',{type:'danger',duration:7000})}};$('#passwordLogin').onclick=passwordLogin;
@@ -341,4 +341,41 @@ const setSyncStatusV222=setSyncStatus;setSyncStatus=function(label,cls=''){setSy
 
 // 全站版權與設計說明。
 document.querySelector('main').insertAdjacentHTML('afterend','<footer class="app-footer"><b>口罩訂購助手 · 為母親所設計</b><br>© 2026 Willy Huang（WSOFT）</footer>');
+</script>
+<style>
+/* v2.2.3：手機首屏壓縮，保留足夠觸控範圍。 */
+.topin>.logo{cursor:pointer;transition:transform .16s ease,box-shadow .16s ease}
+.topin>.logo:hover{transform:translateY(-1px)}
+.topin>.logo:focus-visible{outline:3px solid rgba(20,184,166,.28);outline-offset:3px}
+@media(max-width:520px){
+  .topin{min-height:54px;padding:7px 10px;gap:8px}
+  .topin>.logo{width:36px;height:36px;min-width:36px;border-radius:11px;font-size:18px;box-shadow:none}
+  .topin h1{font-size:16px;line-height:1.15;white-space:nowrap}
+  .topin h1 .sub{font-size:10px}
+  .topin .sync-pill{font-size:10px;margin-top:3px}
+  .notification-bell{width:36px;height:36px;min-width:36px;font-size:16px;margin-left:auto;border-radius:11px}
+  .wrap{padding:10px 9px 92px}
+  .shop-sticky{top:54px;padding-bottom:2px}
+  .hero{padding:13px 14px;border-radius:17px;gap:9px;box-shadow:none}
+  .hero h2{font-size:19px;margin:0}
+  .hero p{display:none}
+  .metric{gap:6px}
+  .metric div{min-width:0;padding:7px 9px;border-radius:10px}
+  .metric span{font-size:10px;white-space:nowrap}
+  .metric b{font-size:16px;line-height:1.15}
+  .toolbar{grid-template-columns:minmax(0,1fr) auto;gap:7px;margin:8px 0}
+  .toolbar input{min-width:0;padding:10px 12px}
+  .toolbar .btn{width:auto;padding:9px 11px;white-space:nowrap}
+  .chips{gap:6px;padding-bottom:4px}
+  .chip{padding:7px 11px;font-size:12px}
+}
+</style>
+<script>
+// v2.2.3：標誌返回商品首頁；通知只由未讀紀錄決定，不再於重整時重複彈出。
+APP_VERSION='2.2.3';
+document.title='口罩訂購助手 v2.2.3';
+const versionLabel=document.querySelector('.topin h1 .sub');if(versionLabel)versionLabel.textContent='v2.2.3';
+const homeLogo=document.querySelector('.topin>.logo');
+function returnToProducts(){go('shop');window.scrollTo({top:0,behavior:'smooth'});}
+if(homeLogo){homeLogo.setAttribute('role','button');homeLogo.setAttribute('tabindex','0');homeLogo.setAttribute('aria-label','返回商品一覽');homeLogo.setAttribute('title','返回商品一覽');homeLogo.onclick=returnToProducts;homeLogo.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();returnToProducts()}}}
 </script></body></html>
