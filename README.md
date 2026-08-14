@@ -51,3 +51,15 @@ Magic Link 必須回到實際發布的網站，不能以本機 `file://` 作為�
 - 目前 HTML 只包含可公開使用的 Publishable key，資料存取仍由 Supabase 登入與資料庫函式限制。
 - 不要關閉初始化 SQL 建立的權限檢查。
 - 正式使用前，請先使用兩個測試帳號驗證管理員核准流程。
+
+## v2.1.0 帳號與密碼管理升級
+
+1. 在 Supabase **SQL Editor** 執行 `supabase/v2.1.0-upgrade.sql`。
+2. 在 Supabase **Edge Functions** 建立函式 `mask-user-admin`。
+3. 將 `supabase/functions/mask-user-admin/index.ts` 全文貼入函式並部署。
+4. Edge Function 必須保持 JWT 驗證開啟。
+5. 回到網站按 `Ctrl + F5`，確認版本顯示 `v2.1.0`。
+6. 管理員可在「設定 → 帳號管理中心」建立 Email、臨時密碼與權限。
+7. 新使用者使用 Email＋臨時密碼登入，第一次登入必須設定自己的密碼。
+
+`SUPABASE_SERVICE_ROLE_KEY` 只能由 Edge Function 在後端讀取，禁止貼到 HTML、GitHub 或瀏覽器程式碼。
