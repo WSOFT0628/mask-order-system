@@ -96,7 +96,6 @@ Deno.serve(async (req) => {
       const fulfillment = String(customer.fulfillment || '').trim(), options = Array.isArray(campaign.fulfillment_options) ? campaign.fulfillment_options : []
       if (!name || !phone) return reply({ error: 'CUSTOMER_REQUIRED' }, 400)
       if (!options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
-      if (fulfillment.includes('宅配') && !String(customer.address || '').trim()) return reply({ error: 'ADDRESS_REQUIRED' }, 400)
       const totals = await calculate(input.items), editToken = randomToken(), orderNo = orderNumber()
       const { error } = await db.from('mask_buyer_orders').insert({
         campaign_id: campaign.id, order_no: orderNo, edit_token_hash: await sha256(editToken),
@@ -130,7 +129,6 @@ Deno.serve(async (req) => {
       const fulfillment = String(rawCustomer.fulfillment || '').trim(), options = Array.isArray(campaign.fulfillment_options) ? campaign.fulfillment_options : []
       if (!name || !phone) return reply({ error: 'CUSTOMER_REQUIRED' }, 400)
       if (!options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
-      if (fulfillment.includes('宅配') && !String(rawCustomer.address || '').trim()) return reply({ error: 'ADDRESS_REQUIRED' }, 400)
       const totals = await calculate(input.items), customer = {
         name: name.slice(0, 80), phone: phone.slice(0, 40), line_name: String(rawCustomer.line_name || '').trim().slice(0, 80),
         fulfillment, address: String(rawCustomer.address || '').trim().slice(0, 300), note: String(rawCustomer.note || '').trim().slice(0, 1000), consent: true,
