@@ -594,7 +594,7 @@ renderOrders();
 .cost-mode-grid{display:grid;gap:10px;margin-top:12px}.cost-mode-option{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#f7faf9}.cost-mode-option input{width:19px;height:19px;margin-top:2px}.cost-mode-option b{display:block}.cost-mode-option small{display:block;color:var(--muted)}
 </style>
 <script>
-APP_VERSION='3.3.2';document.title='口罩訂購助手 v3.3.2';if(versionLabel)versionLabel.textContent='v3.3.2';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.3.2';$('#aboutModal h2').textContent='口罩訂購助手 v3.3.2';
+APP_VERSION='3.3.3';document.title='口罩訂購助手 v3.3.3';if(versionLabel)versionLabel.textContent='v3.3.3';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.3.3';$('#aboutModal h2').textContent='口罩訂購助手 v3.3.3';
 
 // 團購模式預設不收運費、不計稅；設定值必須明確為 true 才啟用。
 state.settings.enableBuyerShipping=state.settings.enableBuyerShipping===true;
@@ -650,8 +650,11 @@ function printPackingSlips(ids){let rows=buyerOrderRows.filter(o=>ids.includes(o
 $('#applyBulkBuyerStatus').onclick=applyBulkBuyerStatus;$('#printSelectedPackingSlips').onclick=()=>printPackingSlips([...selectedBuyerDeleteIds]);renderBuyerOrders();
 </script><script>const adminHomeLogo=document.querySelector('.top .logo');adminHomeLogo.style.cursor='pointer';adminHomeLogo.title='返回商品一覽';adminHomeLogo.onclick=()=>go('shop');</script><style>
 .toast-stack{z-index:1400!important}
-.toast-stack.confirm-mode{inset:50% auto auto 50%!important;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 28px))}
-.toast.confirm-toast{border:2px solid rgba(255,255,255,.6);box-shadow:0 24px 80px rgba(0,0,0,.38)}
+.toast-stack.confirm-mode{inset:0!important;transform:none;width:auto;display:grid;place-content:center;padding:18px;background:rgba(11,45,41,.48);backdrop-filter:blur(3px);pointer-events:auto}
+.toast.confirm-toast{width:min(420px,calc(100vw - 36px));background:#fff;color:var(--ink);border:1px solid var(--line);border-left:5px solid #d97706;border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.toast.confirm-toast .toast-actions{margin-top:18px}
+.toast.confirm-toast .cancel{background:#edf3f2;color:var(--ink)}
+.toast.confirm-toast .ok{background:var(--brand);color:#fff}
 </style><script>
 confirmToast=function(message,onConfirm){
  const panel=$('#notificationPanel'),stack=$('#toastStack');
