@@ -45,4 +45,5 @@ $('#copyOrderInfo').onclick=async()=>{let link=$('#copyOrderInfo').dataset.link;
 // v3.2.0：買家查詢改用獨立頁面，不再顯示共用裝置上的其他訂單。
 $('#openMyOrders').onclick=()=>location.href='my-orders.html';
 $('#successMyOrders').onclick=()=>{let phone=$('#buyerPhone').value.trim();if(currentOrderNo&&phone)sessionStorage.setItem(`mask-order-phone-${currentOrderNo}`,phone);location.href=`my-orders.html${currentOrderNo?`?order=${encodeURIComponent(currentOrderNo)}`:''}`};
+const buyerHomeLogo=document.querySelector('.top .logo');buyerHomeLogo.style.cursor='pointer';buyerHomeLogo.title='返回訂購主頁';buyerHomeLogo.onclick=()=>{$('#successPage').classList.add('hidden');$('#myOrdersPage').classList.add('hidden');$('#orderPage').classList.remove('hidden');let ready=$('#buyerName').value.trim()&&$('#buyerPhone').value.trim()&&$('#buyerConsent').checked;ready?showProductStep():showBuyerStep()};
 </script></body></html>
