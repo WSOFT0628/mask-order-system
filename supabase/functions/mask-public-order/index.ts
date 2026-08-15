@@ -115,6 +115,22 @@ Deno.serve(async (req) => {
       return reply({ ok: true, order_no: orderNo, edit_token: editToken, ...totals })
     }
 
+    if (action === 'lookup_buyer') {
+      const name = String(input.name || '').trim(), phone = String(input.phone || '').replace(/\D/g, '')
+      if (!name || !phone) return reply({ error: 'BUYER_LOOKUP_REQUIRED' }, 400)
+      const { data: rows, error } = await db.from('mask_buyer_orders')
+        .select('order_no,customer,items,total_qty,subtotal,shipping,tax,total,status,created_at,mask_order_campaigns(name,slug,allow_edit,active,opens_at,closes_at)')
+        .order('created_at', { ascending: false }).limit(500)
+      if (error) throw error
+      const orders = (rows || []).filter((o: any) =>
+        String(o.customer?.name || '').trim() === name && String(o.customer?.phone || '').replace(/\D/g, '') === phone
+      ).slice(0, 50).map((o: any) => {
+        const c = o.mask_order_campaigns
+        return { order: { order_no:o.order_no,customer:o.customer,items:o.items,total_qty:o.total_qty,subtotal:o.subtotal,shipping:o.shipping,tax:o.tax,total:o.total,status:o.status,created_at:o.created_at },campaign:{ name:c.name,slug:c.slug,allow_edit:c.allow_edit,active:campaignOpen(c) } }
+      })
+      return reply({ orders })
+    }
+
     if (['lookup', 'fetch', 'update', 'cancel'].includes(action)) {
       const orderNo = String(input.order_no || '').trim().toUpperCase(), editToken = String(input.edit_token || '')
       const lookupPhone = String(input.lookup_phone || '').replace(/\D/g, '')
