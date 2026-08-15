@@ -115,13 +115,16 @@ Deno.serve(async (req) => {
       return reply({ ok: true, order_no: orderNo, edit_token: editToken, ...totals })
     }
 
-    if (['fetch', 'update', 'cancel'].includes(action)) {
+    if (['lookup', 'fetch', 'update', 'cancel'].includes(action)) {
       const orderNo = String(input.order_no || '').trim().toUpperCase(), editToken = String(input.edit_token || '')
-      if (!orderNo || !editToken) return reply({ error: 'INVALID_ORDER_ACCESS' }, 400)
+      const lookupPhone = String(input.lookup_phone || '').replace(/\D/g, '')
+      if (!orderNo || (!editToken && !lookupPhone)) return reply({ error: 'INVALID_ORDER_ACCESS' }, 400)
       const { data: order } = await db.from('mask_buyer_orders').select('*,mask_order_campaigns(*)').eq('order_no', orderNo).maybeSingle()
-      if (!order || order.edit_token_hash !== await sha256(editToken)) return reply({ error: 'INVALID_ORDER_ACCESS' }, 404)
+      const tokenOk = !!editToken && !!order && order.edit_token_hash === await sha256(editToken)
+      const phoneOk = !!lookupPhone && !!order && String(order.customer?.phone || '').replace(/\D/g, '') === lookupPhone
+      if (!order || (!tokenOk && !phoneOk)) return reply({ error: 'INVALID_ORDER_ACCESS' }, 404)
       const campaign = order.mask_order_campaigns
-      if (action === 'fetch') return reply({ order: { order_no: order.order_no,customer: order.customer,items: order.items,total_qty: order.total_qty,subtotal: order.subtotal,shipping: order.shipping,tax: order.tax,total: order.total,status: order.status,created_at: order.created_at }, campaign: { name: campaign.name,slug: campaign.slug,allow_edit: campaign.allow_edit,active: campaignOpen(campaign) } })
+      if (action === 'fetch' || action === 'lookup') return reply({ order: { order_no: order.order_no,customer: order.customer,items: order.items,total_qty: order.total_qty,subtotal: order.subtotal,shipping: order.shipping,tax: order.tax,total: order.total,status: order.status,created_at: order.created_at }, campaign: { name: campaign.name,slug: campaign.slug,allow_edit: campaign.allow_edit,active: campaignOpen(campaign) } })
       if (!campaign.allow_edit || !campaignOpen(campaign) || ['aggregated','completed','cancelled'].includes(order.status)) return reply({ error: 'ORDER_LOCKED' }, 400)
       if (action === 'cancel') {
         await db.from('mask_buyer_orders').update({ status: 'cancelled', buyer_updated_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', order.id)
