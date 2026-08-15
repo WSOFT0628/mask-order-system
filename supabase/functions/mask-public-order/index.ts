@@ -66,9 +66,10 @@ Deno.serve(async (req) => {
       }
       if (!items.length) throw new Error('EMPTY_ORDER')
       const totalQty = items.reduce((n, x) => n + x.qty, 0), subtotal = round2(items.reduce((n, x) => n + x.line_total, 0))
+      // 團購預設不計運費與稅額；管理員日後可由設定個別開啟。
       const free = Number(catalog.settings.freeShippingQty || 0), shippingFee = Number(catalog.settings.shippingFee || 0)
-      const shipping = totalQty && totalQty < free ? shippingFee : 0
-      const tax = round2((subtotal + shipping) * Number(catalog.settings.taxRate || 0) / 100)
+      const shipping = catalog.settings.enableBuyerShipping === true && totalQty && totalQty < free ? shippingFee : 0
+      const tax = catalog.settings.enableBuyerTax === true ? round2((subtotal + shipping) * Number(catalog.settings.taxRate || 0) / 100) : 0
       return { items, totalQty, subtotal, shipping, tax, total: round2(subtotal + shipping + tax) }
     }
 
