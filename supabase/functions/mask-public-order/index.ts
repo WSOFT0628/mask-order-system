@@ -96,7 +96,8 @@ Deno.serve(async (req) => {
       const customer = input.customer || {}, name = String(customer.name || '').trim(), phone = String(customer.phone || '').trim()
       const fulfillment = String(customer.fulfillment || '').trim(), options = Array.isArray(campaign.fulfillment_options) ? campaign.fulfillment_options : []
       if (!name || !phone) return reply({ error: 'CUSTOMER_REQUIRED' }, 400)
-      if (!options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
+      // 精簡團購不要求取貨方式；只有買家真的傳入值時才驗證活動選項。
+      if (fulfillment && options.length && !options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
       const totals = await calculate(input.items), editToken = randomToken(), orderNo = orderNumber()
       const { error } = await db.from('mask_buyer_orders').insert({
         campaign_id: campaign.id, order_no: orderNo, edit_token_hash: await sha256(editToken),
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
       const rawCustomer = input.customer || {}, name = String(rawCustomer.name || '').trim(), phone = String(rawCustomer.phone || '').trim()
       const fulfillment = String(rawCustomer.fulfillment || '').trim(), options = Array.isArray(campaign.fulfillment_options) ? campaign.fulfillment_options : []
       if (!name || !phone) return reply({ error: 'CUSTOMER_REQUIRED' }, 400)
-      if (!options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
+      if (fulfillment && options.length && !options.includes(fulfillment)) return reply({ error: 'INVALID_FULFILLMENT' }, 400)
       const totals = await calculate(input.items), customer = {
         name: name.slice(0, 80), phone: phone.slice(0, 40), line_name: String(rawCustomer.line_name || '').trim().slice(0, 80),
         fulfillment, address: String(rawCustomer.address || '').trim().slice(0, 300), note: String(rawCustomer.note || '').trim().slice(0, 1000), consent: true,
