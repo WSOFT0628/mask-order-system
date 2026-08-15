@@ -588,4 +588,27 @@ $('#saveOrderFieldSettings').onclick=()=>{let options={};$$('[data-order-field]'
 const renderOrdersV302=renderOrders;
 renderOrders=function(){renderOrdersV302();$$('.record-card').forEach((card,index)=>{let order=state.orders[index],title=card.querySelector('.section-title b');if(title&&order?.customer?.name)title.textContent=order.customer.name})};
 renderOrders();
+</script>
+<style>
+/* v3.0.3：團購預設免運、免稅，進階費用可由設定個別啟用。 */
+.cost-mode-grid{display:grid;gap:10px;margin-top:12px}.cost-mode-option{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#f7faf9}.cost-mode-option input{width:19px;height:19px;margin-top:2px}.cost-mode-option b{display:block}.cost-mode-option small{display:block;color:var(--muted)}
+</style>
+<script>
+APP_VERSION='3.0.3';document.title='口罩訂購助手 v3.0.3';if(versionLabel)versionLabel.textContent='v3.0.3';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.0.3';$('#aboutModal h2').textContent='口罩訂購助手 v3.0.3';
+
+// 團購模式預設不收運費、不計稅；設定值必須明確為 true 才啟用。
+state.settings.enableBuyerShipping=state.settings.enableBuyerShipping===true;
+state.settings.enableBuyerTax=state.settings.enableBuyerTax===true;
+calc=function(){let qty=0,sub=0,kinds=0;products.forEach(p=>{let q=state.cart[p.id]||0;if(q){qty+=q;sub+=q*p.price;kinds++}});let chargeShipping=state.settings.enableBuyerShipping===true,chargeTax=state.settings.enableBuyerTax===true,free=Number(state.settings.freeShippingQty)||0,ship=chargeShipping&&qty&&qty<free?Number(state.settings.shippingFee)||0:0,tax=chargeTax?(sub+ship)*(Number(state.settings.taxRate)||0)/100:0,total=sub+ship+tax;return{qty,sub,ship,tax,total,kinds}};
+function applyCostModeVisibility(){let showShipping=state.settings.enableBuyerShipping===true,showTax=state.settings.enableBuyerTax===true;$('#shipping').closest('.sumline').classList.toggle('hidden',!showShipping);$('#tax').closest('.sumline').classList.toggle('hidden',!showTax);$('#shippingNotice').classList.toggle('hidden',!showShipping);$('#subtotal').closest('.sumline').querySelector('span').textContent='商品金額';$('#total').closest('.sumline').querySelector('span').textContent='應付總額'}
+const renderCartV303=renderCart;
+renderCart=function(){renderCartV303();applyCostModeVisibility()};
+applyCostModeVisibility();renderCart();
+
+// 保留原運費門檻與稅率設定，只有開啟對應開關後才會套入賣家及買家訂單。
+$('#orderFieldSettings').insertAdjacentHTML('afterend',`<div class="panel" id="buyerCostSettings"><h3>團購金額顯示</h3><div class="helper">目前預設為免運且不計稅，買家只會看到商品金額與應付總額。需要特殊訂購時可臨時開啟。</div><div class="cost-mode-grid"><label class="cost-mode-option"><input id="enableBuyerShipping" type="checkbox"><span><b>啟用運費</b><small>依「免運數量」及「未達門檻運費」計算並顯示</small></span></label><label class="cost-mode-option"><input id="enableBuyerTax" type="checkbox"><span><b>啟用稅額</b><small>依設定稅率計算並顯示，需開立發票時使用</small></span></label></div><div class="actions"><button class="btn primary" id="saveBuyerCostSettings">儲存金額設定</button></div></div>`);
+function renderBuyerCostSettings(){$('#enableBuyerShipping').checked=state.settings.enableBuyerShipping===true;$('#enableBuyerTax').checked=state.settings.enableBuyerTax===true}
+renderBuyerCostSettings();
+const renderSettingsV303=renderSettings;renderSettings=function(){renderSettingsV303();renderOrderFieldSettings();renderBuyerCostSettings()};
+$('#saveBuyerCostSettings').onclick=()=>{state.settings.enableBuyerShipping=$('#enableBuyerShipping').checked;state.settings.enableBuyerTax=$('#enableBuyerTax').checked;persist();renderCart();showToast('團購金額設定已儲存，買家頁將同步套用。')};
 </script></body></html>
