@@ -560,4 +560,32 @@ async function importOrderCsv(file){let matrix=parseRecordCsv(await file.text())
 async function exportSelectedVendorExcel(){let rows=requireSelectedRecords();if(!rows.length)return;let aggregate={};rows.forEach(o=>Object.entries(o.cart||{}).forEach(([id,q])=>aggregate[id]=(aggregate[id]||0)+Number(q||0)));let beforeCart={...state.cart},beforeCustomer={...state.customer};try{state.cart=aggregate;state.customer={company:'多筆訂單彙整',name:cloudProfile.display_name||'賣家',note:`共 ${rows.length} 筆訂單｜${rows.map(o=>o.customer?.name).filter(Boolean).join('、')}`};await exportOriginalExcel()}finally{state.cart=beforeCart;state.customer=beforeCustomer;renderProducts();renderCart()}}
 $('#selectAllRecords').onclick=()=>{state.orders.forEach(o=>selectedRecordIds.add(String(o.id)));updateRecordSelection()};$('#clearRecordSelection').onclick=()=>{selectedRecordIds.clear();updateRecordSelection()};$('#exportPeopleCsv').onclick=exportPeopleCsv;$('#exportOrderDataCsv').onclick=exportOrderDataCsv;$('#exportSelectedExcel').onclick=exportSelectedVendorExcel;$('#importOrderDataCsv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{await importOrderCsv(f)}catch{showToast('訂單 CSV 格式不正確，請使用本系統匯出的訂單資料 CSV。',{type:'danger'})}finally{e.target.value=''}};
 renderOrders();
+</script>
+<style>
+/* v3.0.2：日常訂購只顯示姓名、電話與備註，進階欄位由設定控制。 */
+.order-field-options{display:grid;gap:10px;margin-top:12px}.order-field-option{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#f7faf9}.order-field-option input{width:19px;height:19px;margin-top:2px}.order-field-option b{display:block}.order-field-option small{display:block;color:var(--muted)}
+</style>
+<script>
+APP_VERSION='3.0.2';document.title='口罩訂購助手 v3.0.2';if(versionLabel)versionLabel.textContent='v3.0.2';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.0.2';$('#aboutModal h2').textContent='口罩訂購助手 v3.0.2';
+
+// 保留既有資料欄位與 Excel 對應，只將不常用欄位改為可選顯示。
+state.settings.orderFields=Object.assign({companyTax:false,address:false,fax:false,customerNo:false},state.settings.orderFields||{});
+const checkoutCustomerPanel=$('#checkout .panel');
+checkoutCustomerPanel.querySelector('h2').textContent='訂購人資料';
+checkoutCustomerPanel.querySelector('h2').insertAdjacentHTML('afterend','<div class="helper">日常代填只需要姓名、電話與備註；訂單編號與下單日期會由系統自動保留。</div>');
+const advancedCustomerFields={company:'companyTax',taxId:'companyTax',address:'address',fax:'fax',customerNo:'customerNo'};
+function applyCustomerFieldVisibility(){let options=state.settings.orderFields||{};Object.entries(advancedCustomerFields).forEach(([field,option])=>{let input=document.querySelector(`[data-customer="${field}"]`);if(input)input.closest('.field').classList.toggle('hidden',!options[option])})}
+applyCustomerFieldVisibility();
+
+// 設定頁提供進階訂購欄位開關，未來需要較正式的公司訂單時可隨時開啟。
+const orderSettingsPanel=$('#settingTax').closest('.panel');
+orderSettingsPanel.insertAdjacentHTML('afterend',`<div class="panel" id="orderFieldSettings"><h3>訂購欄位管理</h3><div class="helper">姓名、電話與備註固定顯示；以下資料預設隱藏，開啟後才會出現在賣家代填畫面。</div><div class="order-field-options"><label class="order-field-option"><input type="checkbox" data-order-field="companyTax"><span><b>公司抬頭與統一編號</b><small>公司或團體採購時使用</small></span></label><label class="order-field-option"><input type="checkbox" data-order-field="address"><span><b>收貨地址</b><small>需要宅配或寄送時使用</small></span></label><label class="order-field-option"><input type="checkbox" data-order-field="fax"><span><b>傳真</b><small>需要紙本往來時使用</small></span></label><label class="order-field-option"><input type="checkbox" data-order-field="customerNo"><span><b>客戶編號</b><small>需要對接廠商客戶資料時使用</small></span></label></div><div class="actions"><button class="btn primary" id="saveOrderFieldSettings">儲存欄位設定</button></div></div>`);
+function renderOrderFieldSettings(){let options=state.settings.orderFields||{};$$('[data-order-field]').forEach(input=>input.checked=!!options[input.dataset.orderField])}
+renderOrderFieldSettings();
+$('#saveOrderFieldSettings').onclick=()=>{let options={};$$('[data-order-field]').forEach(input=>options[input.dataset.orderField]=input.checked);state.settings.orderFields=options;persist();applyCustomerFieldVisibility();showToast('訂購欄位顯示設定已儲存。')};
+
+// 紀錄主標一律以訂購人姓名為主，避免隱藏公司欄位後仍產生混淆。
+const renderOrdersV302=renderOrders;
+renderOrders=function(){renderOrdersV302();$$('.record-card').forEach((card,index)=>{let order=state.orders[index],title=card.querySelector('.section-title b');if(title&&order?.customer?.name)title.textContent=order.customer.name})};
+renderOrders();
 </script></body></html>
