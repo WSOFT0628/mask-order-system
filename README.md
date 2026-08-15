@@ -1,65 +1,96 @@
-# 口罩訂購助手 v2.0.0 安裝說明
+# 口罩訂購助手 v3.3.5
 
-## 1. 初始化資料庫
+「口罩訂購助手」是一套適合公司、團體與親友團購使用的口罩訂單管理系統，包含商品挑選、買家下單、訂單查詢、活動管理、狀態批次作業與廠商匯出。
 
-1. 登入 Supabase Dashboard。
-2. 開啟專案 `jhyxaalondrfcybpsgdk`。
-3. 前往 **SQL Editor**。
-4. 建立 **New query**。
-5. 在 GitHub 儲存庫開啟 `supabase/初始化.sql`，複製全部內容。
-6. 貼到 SQL Editor，按下 **Run**。
-7. 確認沒有紅色錯誤訊息。
+## 正式網址
 
-## 2. 設定登入網址
+- [管理端](https://wsoft0628.github.io/mask-order-system/)
+- [買家訂購頁](https://wsoft0628.github.io/mask-order-system/order.html)
+- [買家訂單查詢](https://wsoft0628.github.io/mask-order-system/my-orders.html)
 
-Magic Link 必須回到實際發布的網站，不能以本機 `file://` 作為正式同步網址。
+## 主要功能
 
-1. 在 GitHub 儲存庫開啟 **Settings → Pages**。
+### 管理端
+
+- 商品、分類、價格與價目表管理
+- 賣家代填訂單與訂單紀錄
+- 建立多個團購活動，保留已結束與已停用活動歷史
+- 依活動查看當時的所有買家訂單
+- 訂單全選、多選與批次更新狀態
+- 訂單狀態顏色識別：待確認、已確認、需聯絡、已彙整、已取消、已完成
+- 單筆或批次列印買家分裝單
+- 匯出買家明細 CSV 與廠商 Excel
+- 管理員可二次確認後永久刪除訂單
+- Supabase 雲端同步、成員、帳號與權限管理
+
+### 買家端
+
+- 透過專屬活動網址挑選商品並下單
+- 確認區直接使用 `− / 數量 / ＋` 修改盒數
+- 即時顯示商品名稱、款式、數量與應付總額
+- 訂單送出後可保留訂單編號與專屬連結
+- 獨立訂單中心不依附特定月份活動
+- 可用「訂單編號＋完整電話」查單筆訂單
+- 可用「訂購人姓名＋完整電話」查本人歷史訂單
+- 依活動狀態與訂單進度提供查看、修改或取消
+- 所有主要頁面的應用圖案都可返回主頁
+
+## 版本重點
+
+### v3.3.5
+
+- 移除通知確認卡左側的警示色邊條
+- 確認訊息改為右上角緊湊單列，不遮住主要內容
+- 確認卡、通知面板與页面層級互不覆蓋
+
+### v3.3.0–v3.3.1
+
+- 姓名＋完整電話歷史查詢
+- 批次訂單狀態、狀態顏色與分裝單列印
+- 統一管理端、訂購頁與查詢頁的主頁返回邏輯
+
+### v3.2.0
+
+- 獨立買家訂單查詢頁
+- 活動歷史、訂單快照與管理員永久刪除
+- 修正商品明細、總盒數與總金額不一致
+
+## 建置與升級
+
+### 1. GitHub Pages
+
+1. 在儲存庫開啟 **Settings → Pages**。
 2. Source 選擇 **Deploy from a branch**。
-3. Branch 選擇 **main**、資料夾選擇 **/(root)**，再按 **Save**。
-4. 等待網站發布完成，正式網址為 `https://wsoft0628.github.io/mask-order-system/`。
-5. 在 Supabase 前往 **Authentication → URL Configuration**。
-6. 將正式網址設為 **Site URL**。
-7. 將同一網址加入 **Redirect URLs**。
+3. Branch 選擇 **main**，資料夾選擇 **/(root)**。
+4. 正式網站會由 `index.html` 發布。
 
-## 3. 建立第一位管理員
+### 2. Supabase SQL
 
-1. 用正式網址開啟系統。
-2. 輸入管理員 Email，按下「寄送登入連結」。
-3. 到信箱開啟 Magic Link。
-4. 第一位完成登入的人會自動成為管理員。
-5. 系統會把目前本機商品、訂單、設定與價目表上傳成第一份雲端資料。
+新環境先執行初始化 SQL，再依版本順序執行升級檔。已經執行成功的升級檔不需重複執行。
 
-## 4. 新增家人
+v3.3.x 所需的最新升級檔：
 
-1. 家人在手機或電腦開啟同一網址。
-2. 輸入自己的 Email 並開啟登入連結。
-3. 新帳號會顯示「等待管理員核准」。
-4. 管理員前往「設定 → 雲端同步與成員」核准帳號並指定權限。
+1. `supabase-v3.2.0-upgrade.sql`
+2. `supabase-v3.3.0-upgrade.sql`
 
-## 5. 同步狀態
+### 3. Edge Functions
 
-- **已同步**：雲端與目前裝置一致。
-- **同步中**：正在上傳或下載。
-- **等待同步**：本機有新變更等待上傳。
-- **離線使用**：只保存於目前裝置。
-- **同步失敗／同步衝突**：系統保留本機資料並嘗試重新載入雲端版本。
+- `mask-public-order`：買家下單、查詢、修改與取消；`Verify JWT` 維持關閉。
+- `mask-user-admin`：帳號與權限管理；JWT 驗證維持開啟。
+
+只有 Edge Function 原始碼變更時才需要重新部署。單純修改 `index.html`、`order.html` 或 `my-orders.html` 不需要重新執行 SQL。
 
 ## 安全注意事項
 
-- 不要把 Database password、Secret key 或 `service_role` key 放入 HTML。
-- 目前 HTML 只包含可公開使用的 Publishable key，資料存取仍由 Supabase 登入與資料庫函式限制。
-- 不要關閉初始化 SQL 建立的權限檢查。
-- 正式使用前，請先使用兩個測試帳號驗證管理員核准流程。
+- 不要將 Database password、Secret key 或 `service_role` key 放入 HTML、GitHub 或瀏覽器程式碼。
+- HTML 只能使用可公開的 Supabase Publishable key。
+- `SUPABASE_SERVICE_ROLE_KEY` 只能在 Edge Function 後端讀取。
+- 買家歷史訂單不允許只用姓名或只用電話查詢，避免誤查他人資料。
+- 永久刪除訂單無法復原，一般業務紀錄建議優先使用取消或封存。
 
-## v2.1.0 帳號與密碼管理升級
+## 技術架構
 
-1. 在 Supabase **SQL Editor** 執行 `supabase/v2.1.0-upgrade.sql`。
-2. 在 Supabase **Edge Functions** 建立函式 `mask-user-admin`。
-3. 將 `supabase/functions/mask-user-admin/index.ts` 全文貼入函式並部署。
-4. Edge Function 必須保持 JWT 驗證開啟。
-5. 回到網站按 `Ctrl + F5`，確認版本顯示 `v2.1.0`。
-6. 管理員可在「設定 → 帳號管理中心」建立 Email、臨時密碼與權限。
-7. 新使用者使用 Email＋臨時密碼登入，第一次登入必須設定自己的密碼。
-
-`SUPABASE_SERVICE_ROLE_KEY` 只能由 Edge Function 在後端讀取，禁止貼到 HTML、GitHub 或瀏覽器程式碼。
+- 前端：HTML、CSS、JavaScript
+- 網站托管：GitHub Pages
+- 後端與資料庫：Supabase
+- 匯出：CSV、Excel 與列印用分裝單
