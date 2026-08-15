@@ -73,6 +73,14 @@ Deno.serve(async (req) => {
       return { items, totalQty, subtotal, shipping, tax, total: round2(subtotal + shipping + tax) }
     }
 
+    if (action === 'active_campaign') {
+      const { data: campaigns, error } = await db.from('mask_order_campaigns').select('*').eq('active', true).order('created_at', { ascending: false }).limit(20)
+      if (error) throw error
+      const active = (campaigns || []).find((c: any) => campaignOpen(c))
+      if (!active) return reply({ error: 'NO_ACTIVE_CAMPAIGN' }, 404)
+      return reply({ slug: active.slug, name: active.name })
+    }
+
     if (action === 'campaign') {
       const campaign = await getCampaign()
       if (!campaign) return reply({ error: 'CAMPAIGN_NOT_FOUND' }, 404)
