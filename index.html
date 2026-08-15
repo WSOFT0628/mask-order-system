@@ -422,7 +422,7 @@ function showAccountSection(section){
 $$('[data-account-section]').forEach(b=>b.onclick=()=>showAccountSection(b.dataset.accountSection));
 function renderSystemStatus(){
   let template=getActiveTemplate(),expiry=template?.expiry?templateStatus(template):'未設定',cacheBytes=new Blob([localStorage.getItem(KEY)||'']).size;
-  let cards=[['目前版本','v2.3.0'],['登入帳號',cloudProfile.username||cloudProfile.contact_email||cloudProfile.email||'—'],['帳號身分',accountRoleName(cloudRole)],['雲端連線',cloudReady?'正常':'尚未連線'],['同步狀態',$('#syncStatus').textContent||'—'],['最後同步',lastCloudSyncAt?lastCloudSyncAt.toLocaleString('zh-TW'):'尚無紀錄'],['通知同步',cloudReady?'已啟用':'未啟用'],['本機暫存',`${(cacheBytes/1024).toFixed(1)} KB`],['目前價目表',`${template?.name||'內建價目表'}｜${expiry}`]];
+  let cards=[['目前版本',`v${APP_VERSION}`],['登入帳號',cloudProfile.username||cloudProfile.contact_email||cloudProfile.email||'—'],['帳號身分',accountRoleName(cloudRole)],['雲端連線',cloudReady?'正常':'尚未連線'],['同步狀態',$('#syncStatus').textContent||'—'],['最後同步',lastCloudSyncAt?lastCloudSyncAt.toLocaleString('zh-TW'):'尚無紀錄'],['通知同步',cloudReady?'已啟用':'未啟用'],['本機暫存',`${(cacheBytes/1024).toFixed(1)} KB`],['目前價目表',`${template?.name||'內建價目表'}｜${expiry}`]];
   $('#systemStatusGrid').innerHTML=cards.map(([k,v])=>`<div class="system-status-card"><small>${xmlEscape(k)}</small><b>${xmlEscape(v)}</b></div>`).join('');
   $('#recoveryStatusText').textContent=cloudProfile.contact_email?`救援 Email：${cloudProfile.contact_email}`:'目前未設定救援 Email；忘記密碼時需聯絡管理員。';
 }
