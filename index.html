@@ -594,7 +594,7 @@ renderOrders();
 .cost-mode-grid{display:grid;gap:10px;margin-top:12px}.cost-mode-option{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#f7faf9}.cost-mode-option input{width:19px;height:19px;margin-top:2px}.cost-mode-option b{display:block}.cost-mode-option small{display:block;color:var(--muted)}
 </style>
 <script>
-APP_VERSION='3.1.0';document.title='口罩訂購助手 v3.1.0';if(versionLabel)versionLabel.textContent='v3.1.0';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.1.0';$('#aboutModal h2').textContent='口罩訂購助手 v3.1.0';
+APP_VERSION='3.2.0';document.title='口罩訂購助手 v3.2.0';if(versionLabel)versionLabel.textContent='v3.2.0';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.2.0';$('#aboutModal h2').textContent='口罩訂購助手 v3.2.0';
 
 // 團購模式預設不收運費、不計稅；設定值必須明確為 true 才啟用。
 state.settings.enableBuyerShipping=state.settings.enableBuyerShipping===true;
@@ -611,4 +611,28 @@ function renderBuyerCostSettings(){$('#enableBuyerShipping').checked=state.setti
 renderBuyerCostSettings();
 const renderSettingsV303=renderSettings;renderSettings=function(){renderSettingsV303();renderOrderFieldSettings();renderBuyerCostSettings()};
 $('#saveBuyerCostSettings').onclick=()=>{state.settings.enableBuyerShipping=$('#enableBuyerShipping').checked;state.settings.enableBuyerTax=$('#enableBuyerTax').checked;persist();renderCart();showToast('團購金額設定已儲存，買家頁將同步套用。')};
+</script>
+<style>
+/* v3.2.0：活動歷史、買家訂單選取與永久刪除。 */
+.campaign-history-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.campaign-history-tools select,.campaign-history-tools input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px;background:white}.buyer-order-select{display:flex;gap:8px;align-items:center}.buyer-order-select input{width:19px;height:19px}.buyer-delete-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:600px){.campaign-history-tools{grid-template-columns:1fr}}
+</style>
+<script>
+// 活動不因截止而消失；管理員可依進行中、已結束、已停用或全部歷史查找。
+const campaignListBox=$('#campaignList');
+campaignListBox.insertAdjacentHTML('beforebegin',`<div class="campaign-history-tools"><select id="campaignHistoryFilter"><option value="all">全部活動</option><option value="active">進行中</option><option value="ended">已結束</option><option value="inactive">已停用</option></select><input id="campaignHistorySearch" placeholder="搜尋活動名稱或網址代碼"></div>`);
+function campaignHistoryState(c){let ended=!!c.closes_at&&new Date(c.closes_at)<new Date();if(ended)return'ended';return c.active?'active':'inactive'}
+renderCampaignList=function(){let filter=$('#campaignHistoryFilter').value,q=$('#campaignHistorySearch').value.trim().toLowerCase(),rows=campaignRows.filter(c=>(filter==='all'||campaignHistoryState(c)===filter)&&(!q||`${c.name}${c.slug}`.toLowerCase().includes(q)));$('#campaignList').innerHTML=rows.map(c=>{let stateName={active:'進行中',ended:'已結束',inactive:'已停用'}[campaignHistoryState(c)],count=buyerOrderRows.filter(o=>o.campaign_id===c.id).length;return `<div class="campaign-item ${c.id===selectedCampaignId?'active':''}" data-campaign-id="${c.id}"><b>${xmlEscape(c.name)}</b><div class="mini">${stateName}｜${c.closes_at?'截止 '+new Date(c.closes_at).toLocaleString('zh-TW'):'無截止時間'}｜${count} 筆訂單</div></div>`}).join('')||'<div class="empty">沒有符合的活動紀錄</div>';$$('[data-campaign-id]').forEach(x=>x.onclick=()=>selectCampaign(x.dataset.campaignId))};
+$('#campaignHistoryFilter').onchange=renderCampaignList;$('#campaignHistorySearch').oninput=renderCampaignList;
+
+// 永久刪除只提供具 record_delete 權限的管理員，並保留二次確認。
+$('#buyerOrderList').insertAdjacentHTML('beforebegin',`<div class="buyer-delete-actions"><button class="btn light" id="selectAllBuyerOrders">全選目前結果</button><button class="btn light" id="clearBuyerOrderSelection">取消全選</button><button class="btn danger" id="deleteSelectedBuyerOrders">永久刪除選取訂單</button><span class="status" id="buyerDeleteCount">已選 0 筆</span></div>`);
+let selectedBuyerDeleteIds=new Set;
+function buyerSnapshotTotals(o){let items=o.items||[],qty=items.reduce((n,x)=>n+Number(x.qty||0),0),sub=items.reduce((n,x)=>n+Number(x.line_total??Number(x.price||0)*Number(x.qty||0)),0);return{qty,sub,total:sub+Number(o.shipping||0)+Number(o.tax||0)}}
+const renderBuyerOrdersV320=renderBuyerOrders;
+renderBuyerOrders=function(){renderBuyerOrdersV320();let rows=filteredBuyerOrders(),cards=$$('#buyerOrderList .buyer-order-card');cards.forEach((card,i)=>{let o=rows[i];if(!o)return;let total=buyerSnapshotTotals(o),head=card.querySelector('.buyer-order-head>div');head?.insertAdjacentHTML('afterbegin',`<label class="buyer-order-select"><input type="checkbox" data-buyer-delete-check="${o.id}" ${selectedBuyerDeleteIds.has(o.id)?'checked':''}><span class="mini">選取</span></label>`);let sum=card.querySelector('.section-title');if(sum){sum.querySelector('span').textContent=total.qty+' 盒';sum.querySelector('b').textContent=money(total.total)}if(hasPermission('record_delete'))card.insertAdjacentHTML('beforeend',`<div class="actions"><button class="btn danger" data-delete-buyer-order="${o.id}">永久刪除</button></div>`)});let scope=scopedBuyerOrders().filter(o=>o.status!=='cancelled'),totals=scope.map(buyerSnapshotTotals);$('#buyerTotalQty').textContent=totals.reduce((n,x)=>n+x.qty,0);$('#buyerTotalAmount').textContent=money(totals.reduce((n,x)=>n+x.total,0));$$('[data-buyer-delete-check]').forEach(x=>x.onchange=()=>{x.checked?selectedBuyerDeleteIds.add(x.dataset.buyerDeleteCheck):selectedBuyerDeleteIds.delete(x.dataset.buyerDeleteCheck);updateBuyerDeleteCount()});$$('[data-delete-buyer-order]').forEach(b=>b.onclick=()=>deleteBuyerOrders([b.dataset.deleteBuyerOrder]));$('#deleteSelectedBuyerOrders').classList.toggle('hidden',!hasPermission('record_delete'));updateBuyerDeleteCount()};
+function updateBuyerDeleteCount(){selectedBuyerDeleteIds=new Set([...selectedBuyerDeleteIds].filter(id=>buyerOrderRows.some(o=>o.id===id)));$('#buyerDeleteCount').textContent=`已選 ${selectedBuyerDeleteIds.size} 筆`}
+async function deleteBuyerOrders(ids){if(!ids.length)return showToast('請先選取訂單。',{type:'warn'});let labels=buyerOrderRows.filter(o=>ids.includes(o.id)).map(o=>o.order_no).join('、');confirmToast(`永久刪除 ${ids.length} 筆訂單？${labels}。此動作無法復原。`,()=>confirmToast('最後確認：確定永久刪除？活動紀錄仍會保留，但這些訂單將無法查詢。',async()=>{try{let count=await cloudRpc('mask_admin_delete_buyer_orders',{p_order_ids:ids});ids.forEach(id=>selectedBuyerDeleteIds.delete(id));await loadBuyerOrders();renderCampaignList();showToast(`已永久刪除 ${count} 筆訂單。`)}catch(e){showToast('刪除失敗：'+e.message,{type:'danger'})}}))}
+$('#selectAllBuyerOrders').onclick=()=>{filteredBuyerOrders().forEach(o=>selectedBuyerDeleteIds.add(o.id));renderBuyerOrders()};$('#clearBuyerOrderSelection').onclick=()=>{selectedBuyerDeleteIds.clear();renderBuyerOrders()};$('#deleteSelectedBuyerOrders').onclick=()=>deleteBuyerOrders([...selectedBuyerDeleteIds]);
+renderCampaignList();renderBuyerOrders();
 </script></body></html>
