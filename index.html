@@ -106,7 +106,7 @@ function startMagicLinkCooldown(btn,seconds){clearInterval(window.magicLinkCoold
 function readAuthCallback(){let p=new URLSearchParams(location.hash.slice(1));if(!p.get('access_token'))return false;window.__maskRecoveryCallback=p.get('type')==='recovery';if(window.__maskRecoveryCallback)window.__maskForcePasswordPending=true;cloudSession={access_token:p.get('access_token'),refresh_token:p.get('refresh_token'),expires_at:Date.now()+Number(p.get('expires_in')||3600)*1000,user_email:p.get('user_email')||''};localStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(cloudSession));history.replaceState(null,'',location.pathname+location.search);return true}
 async function refreshCloudSession(){if(!cloudSession?.refresh_token)return false;try{let d=await sbRequest('/auth/v1/token?grant_type=refresh_token',{auth:false,body:{refresh_token:cloudSession.refresh_token}});cloudSession={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Number(d.expires_in||3600)*1000,user_email:d.user?.email||cloudSession.user_email};localStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(cloudSession));return true}catch{return false}}
 async function cloudRpc(name,body={}){if(cloudSession?.expires_at<Date.now()+60000)await refreshCloudSession();return sbRequest('/rest/v1/rpc/'+name,{body})}
-function normalizeCloudState(data){let d=data&&typeof data==='object'?data:{};d.cart=d.cart||{};d.customer=d.customer||{};d.orders=d.orders||[];d.catalog=d.catalog||defaultProducts.map(p=>({...p}));d.shortcuts=d.shortcuts||defaultShortcuts.map(x=>({...x}));d.settings=d.settings||{taxRate:5,freeShippingQty:40,shippingFee:150,expiryWarningDays:7,blockExpired:false,unlockExcel:true};d.templates=d.templates||[];if(!d.templates.some(t=>t.id==='builtin-default'))d.templates.push({id:'builtin-default',name:'系統預設價目表',filename:'口罩20260702闆價-20260731.xlsx',b64:ORIGINAL_XLSX,expiry:'2026-07-31',offer:'優惠截止，售完為止',published:'2026.07.02',created:'2026-07-02T00:00:00.000Z',catalog:defaultProducts.map(p=>({...p})),builtin:true});d.activeTemplateId=d.activeTemplateId||'builtin-default';return d}
+function normalizeCloudState(data){let d=data&&typeof data==='object'?data:{};d.cart=d.cart||{};d.customer=d.customer||{};d.orders=d.orders||[];d.catalog=d.catalog||defaultProducts.map(p=>({...p}));d.shortcuts=d.shortcuts||defaultShortcuts.map(x=>({...x}));d.settings=d.settings||{taxRate:5,freeShippingQty:40,shippingFee:150,expiryWarningDays:7,blockExpired:false,unlockExcel:true};d.settings.systemOptions=d.settings.systemOptions&&typeof d.settings.systemOptions==='object'?d.settings.systemOptions:{};d.settings.systemOptions.orderStatuses=Array.isArray(d.settings.systemOptions.orderStatuses)?d.settings.systemOptions.orderStatuses:[];d.settings.systemOptions.fulfillmentMethods=Array.isArray(d.settings.systemOptions.fulfillmentMethods)?d.settings.systemOptions.fulfillmentMethods:[];d.templates=d.templates||[];if(!d.templates.some(t=>t.id==='builtin-default'))d.templates.push({id:'builtin-default',name:'系統預設價目表',filename:'口罩20260702闆價-20260731.xlsx',b64:ORIGINAL_XLSX,expiry:'2026-07-31',offer:'優惠截止，售完為止',published:'2026.07.02',created:'2026-07-02T00:00:00.000Z',catalog:defaultProducts.map(p=>({...p})),builtin:true});d.activeTemplateId=d.activeTemplateId||'builtin-default';return d}
 function applyCloudState(data){cloudApplying=true;state=normalizeCloudState(data);products=state.catalog;localStorage.setItem(KEY,JSON.stringify(state));bindCustomer();renderChips();renderProducts();renderCart();renderOrders();renderSettings();cloudApplying=false}
 async function loadCloudState({silent=false}={}){if(!cloudReady)return;try{let rows=await cloudRpc('mask_load_state'),row=rows?.[0];if(!row){cloudVersion=0;cloudDirty=true;await saveCloudState();return}if(Number(row.version)>cloudVersion&&!cloudDirty){cloudVersion=Number(row.version);applyCloudState(row.data);if(!silent)showToast('已從雲端同步最新資料。')}setSyncStatus('已同步','ok');resolveSyncDiagnostics('雲端讀取')}catch(e){console.error(e);recordSyncDiagnostic('雲端讀取',e);setSyncStatus('同步失敗','error');if(!silent)showToast('雲端讀取失敗，資料仍保留在本機。',{type:'danger'})}}
 function scheduleCloudSave(){cloudDirty=true;setSyncStatus('等待同步','busy');clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(saveCloudState,900)}
@@ -691,4 +691,217 @@ const showAccountSectionV340=showAccountSection;showAccountSection=function(sect
 const goV340=go;go=function(id){if(id==='diagnostics'){goV340('accounts');setTimeout(()=>showAccountSection('diagnostics'),40);return}goV340(id)};
 $('#diagnosticRefresh').onclick=renderSyncDiagnostics;$('#diagnosticRetry').onclick=async()=>{setSyncStatus('同步中','busy');await loadCloudState();renderSyncDiagnostics();showToast($('#syncStatus').textContent==='已同步'?'雲端同步已恢復。':'已重新檢查，請查看最新診斷。')};$('#diagnosticClear').onclick=()=>confirmToast('確定清除這台裝置的所有診斷紀錄？',()=>{localStorage.removeItem(SYNC_DIAGNOSTIC_KEY);renderSyncDiagnostics();showToast('診斷紀錄已清除。')});$('#closeDiagnosticDetail').onclick=()=>$('#diagnosticDetailModal').classList.add('hidden');$('#copyDiagnosticDetail').onclick=async()=>{let x=readSyncDiagnostics().find(r=>r.id===selectedDiagnosticId);if(!x)return;await navigator.clipboard.writeText(diagnosticCopyText(x));showToast('診斷資料已複製。')};
 renderSystemStatus();renderSyncDiagnostics();
+</script>
+<style>
+/* v3.5.0：系統選項管理中心。 */
+.option-center{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px}.option-categories,.option-items{display:grid;gap:8px}.option-category,.option-row{border:1px solid var(--line);border-radius:13px;padding:12px;background:white;cursor:pointer}.option-category.active,.option-row.active{border-color:var(--brand2);background:#edf9f7}.option-category b,.option-row b{display:block}.option-workspace{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px}.option-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.option-row.disabled{opacity:.58}.option-code{font:12px ui-monospace,monospace;color:var(--muted)}.option-status-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:-1px}.option-editor{position:sticky;top:84px}.option-editor.option-editor-focus{animation:optionEditorFocus 1.1s ease}.option-checks{display:grid;gap:8px;margin-top:12px}.option-checks label{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:11px;padding:10px;background:#f8fbfa}.option-checks input{width:18px;height:18px;margin-top:2px}.option-color-line{display:grid;grid-template-columns:1fr 54px;gap:8px}.option-color-line input[type=color]{width:54px;height:43px;padding:3px;border:1px solid var(--line);border-radius:10px;background:white}.option-help{background:#edf7f5;color:#285a54;border-radius:12px;padding:10px 12px;margin-bottom:12px}.dynamic-status{font-weight:850;border-width:2px!important}@keyframes optionEditorFocus{0%,100%{box-shadow:0 6px 20px rgba(25,72,67,.05)}35%{box-shadow:0 0 0 4px rgba(20,184,166,.24),0 15px 35px rgba(25,72,67,.16)}}
+@media(max-width:1000px){.option-workspace{grid-template-columns:1fr}.option-editor{position:static}}
+@media(max-width:760px){.option-center{grid-template-columns:1fr}.option-categories{grid-template-columns:1fr 1fr}.option-category{text-align:center}}
+</style>
+<script>
+APP_VERSION='3.5.1';document.title='口罩訂購助手 v3.5.1';if(versionLabel)versionLabel.textContent='v3.5.1';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.5.1';$('#aboutModal h2').textContent='口罩訂購助手 v3.5.1';
+const DEFAULT_ORDER_STATUS_OPTIONS=[
+ {code:'pending',name:'待確認',color:'#f59e0b',sort:10,enabled:true,aggregate:false,final:false,core:true},
+ {code:'confirmed',name:'已確認',color:'#0ea5e9',sort:20,enabled:true,aggregate:true,final:false,core:true},
+ {code:'contact',name:'需聯絡',color:'#f43f5e',sort:30,enabled:true,aggregate:false,final:false,core:true},
+ {code:'aggregated',name:'已彙整',color:'#8b5cf6',sort:40,enabled:true,aggregate:true,final:false,core:true},
+ {code:'cancelled',name:'已取消',color:'#94a3b8',sort:50,enabled:true,aggregate:false,final:true,core:true},
+ {code:'completed',name:'已完成',color:'#22c55e',sort:60,enabled:true,aggregate:true,final:true,core:true}
+];
+const DEFAULT_FULFILLMENT_OPTIONS=[{code:'pickup',name:'面交',sort:10,enabled:true,core:true},{code:'delivery',name:'宅配',sort:20,enabled:true,core:true}];
+state.settings.systemOptions=state.settings.systemOptions||{};
+function mergeSystemOptions(current,defaults){let map=new Map((current||[]).map(x=>[x.code,x]));return defaults.map(d=>Object.assign({},d,map.get(d.code)||{})).concat((current||[]).filter(x=>!defaults.some(d=>d.code===x.code))).sort((a,b)=>Number(a.sort)-Number(b.sort)||a.name.localeCompare(b.name,'zh-Hant'))}
+state.settings.systemOptions.orderStatuses=mergeSystemOptions(state.settings.systemOptions.orderStatuses,DEFAULT_ORDER_STATUS_OPTIONS);
+state.settings.systemOptions.fulfillmentMethods=mergeSystemOptions(state.settings.systemOptions.fulfillmentMethods,DEFAULT_FULFILLMENT_OPTIONS);
+let optionCategory='orderStatuses',selectedOptionCode='';
+function systemOptionRows(category=optionCategory){return(state.settings.systemOptions[category]||[]).slice().sort((a,b)=>Number(a.sort)-Number(b.sort)||a.name.localeCompare(b.name,'zh-Hant'))}
+function activeOrderStatuses(){return systemOptionRows('orderStatuses').filter(x=>x.enabled)}
+function activeFulfillmentMethods(){return systemOptionRows('fulfillmentMethods').filter(x=>x.enabled)}
+function contrastText(hex){let c=String(hex||'#64748b').replace('#',''),r=parseInt(c.slice(0,2),16)||0,g=parseInt(c.slice(2,4),16)||0,b=parseInt(c.slice(4,6),16)||0;return(r*299+g*587+b*114)/1000>170?'#22313a':'#fff'}
+function applySystemOptions(){let statuses=systemOptionRows('orderStatuses');Object.keys(buyerStatusNames).forEach(k=>delete buyerStatusNames[k]);statuses.forEach(x=>buyerStatusNames[x.code]=x.name);let style=$('#dynamicStatusStyle');if(!style){style=document.createElement('style');style.id='dynamicStatusStyle';document.head.appendChild(style)}style.textContent=statuses.map(x=>`.status-${CSS.escape(x.code)}{color:${x.color};border-color:${x.color};background:${x.color}18}`).join('');let filters=[['all','全部狀態'],...statuses.filter(x=>x.enabled).map(x=>[x.code,x.name])];if($('#buyerStatusFilter')){$('#buyerStatusFilter').innerHTML=filters.map(([v,n])=>`<option value="${xmlEscape(v)}">${xmlEscape(n)}</option>`).join('')}if($('#bulkBuyerStatus')){$('#bulkBuyerStatus').innerHTML=statuses.filter(x=>x.enabled).map(x=>`<option value="${xmlEscape(x.code)}">${xmlEscape(x.name)}</option>`).join('')}persist()}
+document.querySelector('#settings').insertAdjacentHTML('beforeend',`<div class="panel" id="systemOptionCenter"><div class="section-title"><div><h2 style="margin-bottom:2px">系統選項管理</h2><div class="helper">統一管理狀態、取貨方式及系統內可重複使用的選項</div></div><button class="btn primary" id="newSystemOption">新增項目</button></div></div><div class="option-center"><aside class="panel"><h3>選項類別</h3><div class="option-categories"><div class="option-category active" data-option-category="orderStatuses"><b>訂單狀態</b><small class="helper">確認、彙整與結案流程</small></div><div class="option-category" data-option-category="fulfillmentMethods"><b>取貨方式</b><small class="helper">新活動的預設取貨選項</small></div></div></aside><div class="option-workspace"><div class="panel"><div class="section-title"><div><h3 id="optionListTitle">訂單狀態</h3><div class="helper" id="optionListHelp">點選項目後可於右側編輯</div></div><span class="status" id="optionItemCount">0 項</span></div><div class="option-items" id="systemOptionList"></div></div><div class="panel option-editor"><h3 id="optionEditorTitle">新增訂單狀態</h3><div class="option-help" id="optionEditorHelp">代碼儲存後不建議修改，避免舊訂單無法對應。</div><div class="form"><div class="field"><label>名稱</label><input id="optionName" placeholder="例如：待付款"></div><div class="field"><label>系統代碼</label><input id="optionCode" placeholder="例如：payment_pending"></div><div class="field"><label>排序</label><input id="optionSort" type="number" min="0" step="10" value="10"></div><div class="field" id="optionColorField"><label>顯示顏色</label><div class="option-color-line"><input id="optionColorText" value="#0f766e"><input id="optionColor" type="color" value="#0f766e"></div></div></div><div class="option-checks"><label><input id="optionEnabled" type="checkbox" checked><span><b>啟用</b><small class="helper">停用後保留舊資料，但新作業不再顯示</small></span></label><label id="optionAggregateRow"><input id="optionAggregate" type="checkbox"><span><b>納入廠商彙整</b><small class="helper">此狀態的訂單會計入商品彙整</small></span></label><label id="optionFinalRow"><input id="optionFinal" type="checkbox"><span><b>結案狀態</b><small class="helper">表示訂單已完成或不再處理</small></span></label></div><div class="actions"><button class="btn primary" id="saveSystemOption">儲存項目</button><button class="btn light" id="resetSystemOption">取消編輯</button><button class="btn danger hidden" id="deleteSystemOption">刪除自訂項目</button></div></div></div></div>`);
+function renderSystemOptionCenter(){let rows=systemOptionRows(),title=optionCategory==='orderStatuses'?'訂單狀態':'取貨方式';$('#optionListTitle').textContent=title;$('#optionItemCount').textContent=`${rows.length} 項`;$('#systemOptionList').innerHTML=rows.map(x=>`<div class="option-row ${x.enabled?'':'disabled'} ${x.code===selectedOptionCode?'active':''}" data-option-code="${xmlEscape(x.code)}"><div><b>${optionCategory==='orderStatuses'?`<span class="option-status-dot" style="background:${x.color}"></span>`:''}${xmlEscape(x.name)}</b><span class="option-code">${xmlEscape(x.code)}｜排序 ${Number(x.sort)||0}</span></div><span class="status">${x.enabled?'啟用':'停用'}</span></div>`).join('')||'<div class="empty">尚無項目</div>';$$('[data-option-code]').forEach(x=>x.onclick=()=>editSystemOption(x.dataset.optionCode));$$('[data-option-category]').forEach(x=>x.classList.toggle('active',x.dataset.optionCategory===optionCategory));$('#optionColorField').classList.toggle('hidden',optionCategory!=='orderStatuses');$('#optionAggregateRow').classList.toggle('hidden',optionCategory!=='orderStatuses');$('#optionFinalRow').classList.toggle('hidden',optionCategory!=='orderStatuses')}
+function resetSystemOptionEditor(){selectedOptionCode='';$('#optionEditorTitle').textContent=`新增${optionCategory==='orderStatuses'?'訂單狀態':'取貨方式'}`;$('#optionName').value='';$('#optionCode').value='';$('#optionCode').disabled=false;$('#optionSort').value=(Math.max(0,...systemOptionRows().map(x=>Number(x.sort)||0))+10);$('#optionColorText').value='#0f766e';$('#optionColor').value='#0f766e';$('#optionEnabled').checked=true;$('#optionAggregate').checked=false;$('#optionFinal').checked=false;$('#deleteSystemOption').classList.add('hidden');renderSystemOptionCenter()}
+function editSystemOption(code){let x=systemOptionRows().find(r=>r.code===code);if(!x)return;selectedOptionCode=code;$('#optionEditorTitle').textContent=`編輯：${x.name}`;$('#optionName').value=x.name;$('#optionCode').value=x.code;$('#optionCode').disabled=true;$('#optionSort').value=x.sort;$('#optionColorText').value=x.color||'#0f766e';$('#optionColor').value=x.color||'#0f766e';$('#optionEnabled').checked=!!x.enabled;$('#optionAggregate').checked=!!x.aggregate;$('#optionFinal').checked=!!x.final;$('#deleteSystemOption').classList.toggle('hidden',!!x.core);renderSystemOptionCenter()}
+function saveSystemOption(){let name=$('#optionName').value.trim(),code=$('#optionCode').value.trim().toLowerCase(),rows=state.settings.systemOptions[optionCategory];if(!name)return showToast('請填寫項目名稱。',{type:'warn'});if(!/^[a-z][a-z0-9_-]{1,31}$/.test(code))return showToast('代碼需為 2～32 個小寫英文、數字、底線或連字號，且必須以英文開頭。',{type:'warn'});let existing=rows.find(x=>x.code===code);if(existing&&existing.code!==selectedOptionCode)return showToast('這個系統代碼已存在。',{type:'warn'});let value={code,name,sort:Number($('#optionSort').value)||0,enabled:$('#optionEnabled').checked,core:existing?.core||false};if(optionCategory==='orderStatuses')Object.assign(value,{color:$('#optionColorText').value||'#0f766e',aggregate:$('#optionAggregate').checked,final:$('#optionFinal').checked});if(existing)Object.assign(existing,value);else rows.push(value);persist();applySystemOptions();resetSystemOptionEditor();renderBuyerOrders();showToast('系統選項已儲存。')}
+function deleteSystemOption(){let rows=state.settings.systemOptions[optionCategory],x=rows.find(r=>r.code===selectedOptionCode);if(!x||x.core)return;if(optionCategory==='orderStatuses'&&buyerOrderRows.some(o=>o.status===x.code))return showToast('已有訂單使用這個狀態，請改為停用，不可刪除。',{type:'warn'});confirmToast(`確定刪除自訂項目「${x.name}」？`,()=>{state.settings.systemOptions[optionCategory]=rows.filter(r=>r.code!==x.code);persist();applySystemOptions();resetSystemOptionEditor();showToast('自訂項目已刪除。')})}
+function startNewSystemOption(){resetSystemOptionEditor();let editor=$('.option-editor');editor.classList.remove('option-editor-focus');void editor.offsetWidth;editor.classList.add('option-editor-focus');editor.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>$('#optionName').focus({preventScroll:true}),380);showToast(`已開啟新增${optionCategory==='orderStatuses'?'訂單狀態':'取貨方式'}表單。`)}
+$$('[data-option-category]').forEach(x=>x.onclick=()=>{optionCategory=x.dataset.optionCategory;resetSystemOptionEditor()});$('#newSystemOption').onclick=startNewSystemOption;$('#resetSystemOption').onclick=resetSystemOptionEditor;$('#saveSystemOption').onclick=saveSystemOption;$('#deleteSystemOption').onclick=deleteSystemOption;$('#optionColor').oninput=e=>$('#optionColorText').value=e.target.value;$('#optionColorText').oninput=e=>{if(/^#[0-9a-f]{6}$/i.test(e.target.value))$('#optionColor').value=e.target.value};
+const aggregateOrdersV350=aggregateOrders;aggregateOrders=function(statuses=null){let allowed=statuses||activeOrderStatuses().filter(x=>x.aggregate).map(x=>x.code);return aggregateOrdersV350(allowed)};
+const resetCampaignEditorV350=resetCampaignEditor;resetCampaignEditor=function(){resetCampaignEditorV350();$('#campaignFulfillment').value=activeFulfillmentMethods().map(x=>x.name).join('、')};$('#newCampaign').onclick=resetCampaignEditor;
+const renderSettingsV350=renderSettings;renderSettings=function(){renderSettingsV350();renderSystemOptionCenter()};
+// v3.5.1：將團購金額與資料安全移到右欄，平衡設定頁左右高度。
+const settingsMainGrid=$('#settings .manage-grid');
+if(settingsMainGrid){
+ const settingsColumns=[...settingsMainGrid.children],leftColumn=settingsColumns[0],rightColumn=settingsColumns[1];
+ const dataSafetyPanel=[...leftColumn.querySelectorAll(':scope > .panel')].find(panel=>panel.querySelector('h3')?.textContent.trim()==='資料與安全');
+ if(rightColumn&&$('#buyerCostSettings'))rightColumn.appendChild($('#buyerCostSettings'));
+ if(rightColumn&&dataSafetyPanel)rightColumn.appendChild(dataSafetyPanel);
+}
+applySystemOptions();resetSystemOptionEditor();renderBuyerOrders();
+</script>
+<style>
+/* v3.5.2：設定頁改為頁簽式資訊架構。 */
+.settings-tabs{position:sticky;top:70px;z-index:16;display:flex;gap:7px;overflow-x:auto;margin:0 0 15px;padding:6px;background:#e8f2f0;border:1px solid var(--line);border-radius:16px;scrollbar-width:none}.settings-tabs::-webkit-scrollbar{display:none}.settings-tabs button{flex:0 0 auto;border:0;border-radius:11px;padding:10px 15px;background:transparent;color:var(--muted);font-weight:800;cursor:pointer}.settings-tabs button.active{background:white;color:var(--brand);box-shadow:0 4px 13px rgba(25,72,67,.1)}.settings-tab-panel{display:none}.settings-tab-panel.active{display:block}.settings-tab-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.settings-tab-grid>.panel{margin-bottom:0}.settings-tab-stack{display:grid;gap:16px}.settings-tab-stack>.panel{margin-bottom:0}.settings-tab-panel .option-center{margin-top:0}.settings-tab-note{margin:-5px 0 13px;color:var(--muted);font-size:12px}
+@media(max-width:850px){.settings-tabs{top:64px;margin-left:-2px;margin-right:-2px}.settings-tab-grid{grid-template-columns:1fr}.settings-tabs button{padding:9px 12px}.settings-tab-panel .option-center{grid-template-columns:1fr}}
+</style>
+<script>
+APP_VERSION='3.5.4';document.title='口罩訂購助手 v3.5.4';if(versionLabel)versionLabel.textContent='v3.5.4';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.5.4';$('#aboutModal h2').textContent='口罩訂購助手 v3.5.4';
+const settingsPage=$('#settings'),legacySettingsGrid=settingsPage.querySelector(':scope > .manage-grid');
+const findSettingsPanel=title=>[...settingsPage.querySelectorAll('.panel')].find(p=>p.querySelector(':scope > h3')?.textContent.trim()===title||p.querySelector('.section-title h3')?.textContent.trim()===title);
+const orderBasePanel=findSettingsPanel('訂單與運費'),dataSafetySettingsPanel=findSettingsPanel('資料與安全');
+const priceEditorPanel=$('#priceListFile')?.closest('.panel'),priceHistoryPanel=$('#templateList')?.closest('.panel'),systemOptionLayout=settingsPage.querySelector('.option-center');
+settingsPage.insertAdjacentHTML('afterbegin',`<nav class="settings-tabs" id="settingsTabs" aria-label="設定分類"><button class="active" data-settings-tab="orders">訂單與團購</button><button data-settings-tab="prices">價目表</button><button data-settings-tab="data">資料與安全</button><button data-settings-tab="options">系統選項</button></nav><section class="settings-tab-panel active" data-settings-panel="orders"><div class="settings-tab-note">設定訂單費用、顯示欄位與團購金額規則。</div><div class="settings-tab-grid" id="settingsOrdersGrid"></div></section><section class="settings-tab-panel" data-settings-panel="prices"><div class="settings-tab-note">匯入、啟用或切換價目表版本。</div><div class="settings-tab-grid" id="settingsPricesGrid"></div></section><section class="settings-tab-panel" data-settings-panel="data"><div class="settings-tab-note">管理備份、還原、紀錄與應用資料。</div><div class="settings-tab-stack" id="settingsDataStack"></div></section><section class="settings-tab-panel" data-settings-panel="options"><div class="settings-tab-note">統一管理訂單狀態與取貨方式。</div><div class="settings-tab-stack" id="settingsOptionsStack"></div></section>`);
+const settingsHeaderPanel=$('#activeTemplateStatus')?.closest('.panel');
+if(settingsHeaderPanel)settingsHeaderPanel.after($('#settingsTabs'),...$$('[data-settings-panel]'));
+// 左右欄各自堆疊，不讓右欄高度擔開左欄的卡片間距。
+$('#settingsOrdersGrid').innerHTML='<div class="settings-tab-stack" id="settingsOrdersLeft"></div><div class="settings-tab-stack" id="settingsOrdersRight"></div>';
+function moveSettingsPanel(panel,target){if(panel&&target)target.appendChild(panel)}
+moveSettingsPanel(orderBasePanel,$('#settingsOrdersLeft'));moveSettingsPanel($('#buyerCostSettings'),$('#settingsOrdersLeft'));moveSettingsPanel($('#orderFieldSettings'),$('#settingsOrdersRight'));
+moveSettingsPanel(priceEditorPanel,$('#settingsPricesGrid'));moveSettingsPanel(priceHistoryPanel,$('#settingsPricesGrid'));
+moveSettingsPanel(dataSafetySettingsPanel,$('#settingsDataStack'));moveSettingsPanel($('#systemOptionCenter'),$('#settingsOptionsStack'));moveSettingsPanel(systemOptionLayout,$('#settingsOptionsStack'));
+if(legacySettingsGrid&&!legacySettingsGrid.querySelector('.panel'))legacySettingsGrid.remove();
+let activeSettingsTab=sessionStorage.getItem('mask_settings_tab')||'orders';
+function showSettingsTab(tab){if(!settingsPage.querySelector(`[data-settings-panel="${tab}"]`))tab='orders';activeSettingsTab=tab;sessionStorage.setItem('mask_settings_tab',tab);$$('[data-settings-tab]').forEach(b=>b.classList.toggle('active',b.dataset.settingsTab===tab));$$('[data-settings-panel]').forEach(p=>p.classList.toggle('active',p.dataset.settingsPanel===tab));if(tab==='options')renderSystemOptionCenter()}
+$$('[data-settings-tab]').forEach(b=>b.onclick=()=>showSettingsTab(b.dataset.settingsTab));
+const renderSettingsV352=renderSettings;renderSettings=function(){renderSettingsV352();showSettingsTab(activeSettingsTab)};
+const goV352=go;go=function(id){goV352(id);if(id==='settings')setTimeout(()=>showSettingsTab(activeSettingsTab),20)};
+showSettingsTab(activeSettingsTab);
+</script>
+<style>
+/* v3.5.5：重整導覽職責，日常營運、系統設定與帳號安全各有唯一主要入口。 */
+.account-menu-group-label{padding:7px 11px 3px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.06em}.account-menu-btn.current{background:#e5f4f1;color:var(--brand);font-weight:800}
+@media(max-width:850px){.footbar button{font-size:10px}}
+</style>
+<script>
+APP_VERSION='3.5.6';document.title='口罩訂購助手 v3.5.6';if(versionLabel)versionLabel.textContent='v3.5.6';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.5.6';$('#aboutModal h2').textContent='口罩訂購助手 v3.5.6';
+
+// 頂部導覽只負責日常工作與全站設定。
+$$('[data-go="admin"]').forEach(b=>b.textContent='營運管理');
+$$('[data-go="settings"]').forEach(b=>b.textContent='系統設定');
+$('#admin .section-title h2').textContent='營運管理';
+$('#admin .section-title .helper').textContent='管理商品、分類與快捷區塊';
+
+// 帳號選單只保留個人、人員、權限與安全功能，不再重複放系統設定。
+// 舊的權限顯示程式仍會取用此元件，因此保留但隱藏，避免移除後造成全頁腳本中斷。
+$('#menuSettings')?.classList.add('hidden');
+$('#menuAccount').textContent='◉　我的帳號與密碼';
+$('#menuUsers').textContent='♙　使用者管理';
+$('#menuPermissions').textContent='⚟　角色與權限';
+$('#menuPermissions').insertAdjacentHTML('afterend','<button class="account-menu-btn" id="menuSecurityEvents">◎　安全紀錄</button><button class="account-menu-btn" id="menuDiagnostics">◈　異常診斷</button>');
+$('#menuAccount').insertAdjacentHTML('beforebegin','<div class="account-menu-group-label">帳號與安全</div>');
+
+function openAccountMenuSection(section){$('#accountPopover').classList.add('hidden');go('accounts');setTimeout(()=>showAccountSection(section),50)}
+$('#menuSecurityEvents').onclick=()=>openAccountMenuSection('events');
+$('#menuDiagnostics').onclick=()=>openAccountMenuSection('diagnostics');
+
+// 帳號中心的頁籤作為同一區域內的次要導覽，與右上選單名稱保持一致。
+document.querySelector('[data-account-section="overview"]').textContent='系統總覽';
+document.querySelector('[data-account-section="security"]').textContent='我的帳號與密碼';
+accountPage.querySelector('.panel .helper').textContent='管理個人帳號、使用者權限與安全紀錄';
+
+const renderAccountMenuV355=renderAccountMenu;
+renderAccountMenu=function(){renderAccountMenuV355();$('#menuSecurityEvents')?.classList.toggle('hidden',!cloudSession);$('#menuDiagnostics')?.classList.toggle('hidden',!cloudSession)};
+renderAccountMenu();
+</script>
+<style>
+/* v3.5.7：快捷色彩、設定頁平衡與雲端舊資料兼容。 */
+.shortcut-color-line{display:grid;grid-template-columns:1fr 54px;gap:8px}.shortcut-color-line input[type=color]{width:54px;height:43px;padding:3px;border:1px solid var(--line);border-radius:10px;background:white}.shortcut-color-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1px solid rgba(0,0,0,.1)}
+#admin>.manage-grid{align-items:start}#admin>.manage-grid>.panel{align-self:start;height:auto;min-height:0}#admin #productManageList{max-height:620px}
+#settings .settings-tab-panel{max-width:none}.settings-tab-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:850px){.settings-tab-grid{grid-template-columns:1fr}}
+</style>
+<script>
+APP_VERSION='3.5.8';document.title='口罩訂購助手 v3.5.8';if(versionLabel)versionLabel.textContent='v3.5.8';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.5.8';$('#aboutModal h2').textContent='口罩訂購助手 v3.5.8';
+
+// 舊雲端設定不含 systemOptions 時，先合併預設值再交給畫面使用。
+function ensureSystemOptions(target=state){
+ target=target&&typeof target==='object'?target:{};
+ target.settings=target.settings&&typeof target.settings==='object'?target.settings:{};
+ target.settings.systemOptions=target.settings.systemOptions&&typeof target.settings.systemOptions==='object'?target.settings.systemOptions:{};
+ target.settings.systemOptions.orderStatuses=mergeSystemOptions(target.settings.systemOptions.orderStatuses,DEFAULT_ORDER_STATUS_OPTIONS);
+ target.settings.systemOptions.fulfillmentMethods=mergeSystemOptions(target.settings.systemOptions.fulfillmentMethods,DEFAULT_FULFILLMENT_OPTIONS);
+ return target;
+}
+ensureSystemOptions(state);
+const normalizeCloudStateV357=normalizeCloudState;
+normalizeCloudState=function(data){return ensureSystemOptions(normalizeCloudStateV357(data))};
+systemOptionRows=function(category=optionCategory){let source=ensureSystemOptions(state).settings.systemOptions;return(source[category]||[]).slice().sort((a,b)=>Number(a.sort)-Number(b.sort)||a.name.localeCompare(b.name,'zh-Hant'))};
+
+// 快捷區塊可設定獨立顏色，舊資料自動使用綠色。
+const shortcutPanel=$('#shortcutLabel')?.closest('.panel');
+if(shortcutPanel&&!$('#shortcutColor')){
+ $('#shortcutCat').closest('.field').insertAdjacentHTML('afterend','<div class="field full"><label>快捷顏色</label><div class="shortcut-color-line"><input id="shortcutColorText" value="#0f766e" placeholder="#0f766e"><input id="shortcutColor" type="color" value="#0f766e"></div></div>');
+ $('#shortcutColor').oninput=e=>$('#shortcutColorText').value=e.target.value;
+ $('#shortcutColorText').oninput=e=>{if(/^#[0-9a-f]{6}$/i.test(e.target.value))$('#shortcutColor').value=e.target.value};
+}
+const defaultShortcutColor=cat=>({'全部':'#0f766e','大人平面':'#0ea5e9','兒童平面':'#f59e0b','4D口罩':'#8b5cf6','兒童3D':'#ec4899','立體口罩':'#14b8a6','防護用品':'#64748b'}[cat]||'#0f766e');
+renderChips=function(){let shortcuts=state.shortcuts.length?state.shortcuts:defaultShortcuts;$('#chips').innerHTML=shortcuts.map(x=>{let color=x.color||defaultShortcutColor(x.cat),active=x.cat===activeCat;return`<button class="chip ${active?'active':''}" data-cat="${xmlEscape(x.cat)}" style="${active?`background:${color};border-color:${color};color:${contrastText(color)}`:`border-color:${color};color:${color}`}">${xmlEscape(x.label)}</button>`}).join('');$$('[data-cat]').forEach(b=>b.onclick=()=>{activeCat=b.dataset.cat;renderChips();renderProducts()})};
+editShortcut=function(id){let x=state.shortcuts.find(v=>v.id===id);if(!x)return;$('#shortcutLabel').value=x.label;$('#shortcutCat').value=x.cat;let color=x.color||defaultShortcutColor(x.cat);$('#shortcutColorText').value=color;$('#shortcutColor').value=color;$('#addShortcut').dataset.editId=id;$('#addShortcut').textContent='更新快捷'};
+saveShortcut=function(){let label=$('#shortcutLabel').value.trim(),cat=$('#shortcutCat').value.trim(),color=$('#shortcutColorText').value.trim(),id=$('#addShortcut').dataset.editId;if(!label||!cat)return showToast('請填寫快捷名稱與對應分類。',{type:'warn'});if(!/^#[0-9a-f]{6}$/i.test(color))return showToast('顏色格式需為 #0f766e。',{type:'warn'});if(id){let i=state.shortcuts.findIndex(x=>x.id===id);state.shortcuts[i]={...state.shortcuts[i],label,cat,color}}else state.shortcuts.push({id:'shortcut-'+Date.now(),label,cat,color});delete $('#addShortcut').dataset.editId;$('#addShortcut').textContent='新增快捷';$('#shortcutLabel').value='';$('#shortcutCat').value='';$('#shortcutColorText').value='#0f766e';$('#shortcutColor').value='#0f766e';persist();renderAdmin();renderChips();showToast(id?'快捷區塊已更新。':'快捷區塊已新增。')};
+$('#addShortcut').onclick=saveShortcut;
+const renderAdminV357=renderAdmin;
+renderAdmin=function(){renderAdminV357();$$('#shortcutList [data-se]').forEach(b=>{let item=state.shortcuts.find(x=>x.id===b.dataset.se),title=b.closest('.manage-item')?.querySelector('b');if(item&&title&&!title.querySelector('.shortcut-color-dot'))title.insertAdjacentHTML('afterbegin',`<span class="shortcut-color-dot" style="background:${item.color||defaultShortcutColor(item.cat)}"></span>`)})};
+
+// 登入與同步完成後主動取得買家訂單數，不需要先進入買家訂單頁。
+let buyerBadgeLoading=false,buyerBadgeLoadedAt=0;
+async function refreshBuyerOrderBadge(){if(!cloudReady||buyerBadgeLoading||!hasPermission('record_view'))return;if(Date.now()-buyerBadgeLoadedAt<4000)return;buyerBadgeLoading=true;try{await loadBuyerOrders();buyerBadgeLoadedAt=Date.now()}finally{buyerBadgeLoading=false}}
+const setSyncStatusV357=setSyncStatus;
+setSyncStatus=function(label,cls=''){setSyncStatusV357(label,cls);if(label==='已同步')setTimeout(refreshBuyerOrderBadge,80)};
+setTimeout(refreshBuyerOrderBadge,500);
+ensureSystemOptions(state);applySystemOptions();renderChips();renderAdmin();
+</script>
+<style>
+/* v3.5.9：快捷條件改為類別＋顏色／關鍵字篩選，不再使用裝飾色。 */
+.shortcut-keyword-hint{color:var(--brand);font-weight:750}
+</style>
+<script>
+APP_VERSION='3.5.9';document.title='口罩訂購助手 v3.5.9';if(versionLabel)versionLabel.textContent='v3.5.9';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.5.9';$('#aboutModal h2').textContent='口罩訂購助手 v3.5.9';
+
+// 移除 v3.5.7 誤解為按鈕外觀色的輸入區。
+$('#shortcutColor')?.closest('.field')?.remove();
+$('#shortcutCat').closest('.field').insertAdjacentHTML('afterend','<div class="field full"><label>顏色／關鍵字（可用頓號分隔）</label><input id="shortcutKeywords" placeholder="例如：藍、藍色、深藍"><div class="helper" style="margin-top:5px">留空時只依對應分類篩選；填寫後會再依商品名稱與款式搜尋。</div></div>');
+
+function shortcutTerms(x){return String(x?.keywords||'').split(/[、,，\s]+/).map(v=>v.trim()).filter(Boolean)}
+let activeShortcutSearchTerms=[];
+const renderProductsV359=renderProducts;
+renderProducts=function(){if(!activeShortcutSearchTerms.length)return renderProductsV359();let source=products,search=$('#search'),shown=search.value;products=source.filter(p=>activeShortcutSearchTerms.some(term=>`${p.cat}${p.name}${p.variant}`.toLowerCase().includes(term.toLowerCase())));search.value='';try{return renderProductsV359()}finally{products=source;search.value=shown}};
+renderChips=function(){let shortcuts=state.shortcuts.length?state.shortcuts:defaultShortcuts;$('#chips').innerHTML=shortcuts.map(x=>`<button class="chip ${x.cat===activeCat&&shortcutTerms(x).join('、')===activeShortcutSearchTerms.join('、')?'active':''}" data-shortcut-id="${xmlEscape(x.id||'')}">${xmlEscape(x.label)}</button>`).join('');$$('[data-shortcut-id]').forEach(b=>b.onclick=()=>{let x=shortcuts.find(v=>String(v.id||'')===b.dataset.shortcutId);if(!x)return;activeCat=x.cat||'全部';activeShortcutSearchTerms=shortcutTerms(x);$('#search').value=activeShortcutSearchTerms.join('、');renderChips();renderProducts()})};
+$('#search').oninput=()=>{activeShortcutSearchTerms=[];renderProducts()};
+$('#clearFilter').onclick=()=>{activeShortcutSearchTerms=[];activeCat='全部';$('#search').value='';renderChips();renderProducts()};
+
+editShortcut=function(id){let x=state.shortcuts.find(v=>v.id===id);if(!x)return;$('#shortcutLabel').value=x.label;$('#shortcutCat').value=x.cat;$('#shortcutKeywords').value=x.keywords||'';$('#addShortcut').dataset.editId=id;$('#addShortcut').textContent='更新快捷'};
+saveShortcut=function(){let label=$('#shortcutLabel').value.trim(),cat=$('#shortcutCat').value.trim(),keywords=$('#shortcutKeywords').value.trim(),id=$('#addShortcut').dataset.editId;if(!label||!cat)return showToast('請填寫快捷名稱與對應分類。',{type:'warn'});if(id){let i=state.shortcuts.findIndex(x=>x.id===id);state.shortcuts[i]={...state.shortcuts[i],label,cat,keywords};delete state.shortcuts[i].color}else state.shortcuts.push({id:'shortcut-'+Date.now(),label,cat,keywords});delete $('#addShortcut').dataset.editId;$('#addShortcut').textContent='新增快捷';$('#shortcutLabel').value='';$('#shortcutCat').value='';$('#shortcutKeywords').value='';persist();renderAdmin();renderChips();showToast(id?'快捷篩選已更新。':'快捷篩選已新增。')};
+$('#addShortcut').onclick=saveShortcut;
+
+const renderAdminV359=renderAdmin;
+renderAdmin=function(){renderAdminV359();$$('#shortcutList .shortcut-color-dot').forEach(x=>x.remove());$$('#shortcutList [data-se]').forEach(b=>{let item=state.shortcuts.find(x=>x.id===b.dataset.se),mini=b.closest('.manage-item')?.querySelector('.mini');if(item&&mini){let terms=shortcutTerms(item);mini.innerHTML=`篩選：${xmlEscape(item.cat)}${terms.length?`<br><span class="shortcut-keyword-hint">關鍵字：${xmlEscape(terms.join('、'))}</span>`:''}`}})};
+renderChips();renderAdmin();
+</script>
+<style>
+/* v3.6.0：快捷篩選自動辨識分類與關鍵字，同時保留裝飾色。 */
+.shortcut-editor-actions{display:flex;gap:8px;flex-wrap:wrap}.shortcut-color-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1px solid rgba(0,0,0,.1)}
+</style>
+<script>
+APP_VERSION='3.6.0';document.title='口罩訂購助手 v3.6.0';if(versionLabel)versionLabel.textContent='v3.6.0';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.6.0';$('#aboutModal h2').textContent='口罩訂購助手 v3.6.0';
+
+// 恢復快捷按鈕裝飾色，並與關鍵字篩選並存。
+$('#shortcutKeywords').closest('.field').insertAdjacentHTML('afterend','<div class="field full"><label>按鈕裝飾色</label><div class="shortcut-color-line"><input id="shortcutColorText" value="#0f766e" placeholder="#0f766e"><input id="shortcutColor" type="color" value="#0f766e"></div></div>');
+$('#shortcutColor').oninput=e=>$('#shortcutColorText').value=e.target.value;
+$('#shortcutColorText').oninput=e=>{if(/^#[0-9a-f]{6}$/i.test(e.target.value))$('#shortcutColor').value=e.target.value};
+$('#addShortcut').parentElement.classList.add('shortcut-editor-actions');
+$('#addShortcut').insertAdjacentHTML('afterend','<button class="btn light hidden" id="cancelShortcutEdit">取消編輯</button>');
+
+function isRealProductCategory(cat){return cat==='全部'||products.some(p=>p.cat===cat)}
+function resetShortcutEditor(){delete $('#addShortcut').dataset.editId;$('#addShortcut').textContent='新增快捷';$('#cancelShortcutEdit').classList.add('hidden');$('#shortcutLabel').value='';$('#shortcutCat').value='';$('#shortcutKeywords').value='';$('#shortcutColorText').value='#0f766e';$('#shortcutColor').value='#0f766e'}
+
+renderChips=function(){let shortcuts=state.shortcuts.length?state.shortcuts:defaultShortcuts;$('#chips').innerHTML=shortcuts.map(x=>{let color=x.color||defaultShortcutColor(x.cat),terms=shortcutTerms(x),effectiveTerms=terms.length?terms:(isRealProductCategory(x.cat)?[]:[x.cat]),effectiveCat=isRealProductCategory(x.cat)?x.cat:'全部',active=effectiveCat===activeCat&&effectiveTerms.join('、')===activeShortcutSearchTerms.join('、');return`<button class="chip ${active?'active':''}" data-shortcut-id="${xmlEscape(x.id||'')}" style="${active?`background:${color};border-color:${color};color:${contrastText(color)}`:`border-color:${color};color:${color}`}">${xmlEscape(x.label)}</button>`}).join('');$$('[data-shortcut-id]').forEach(b=>b.onclick=()=>{let x=shortcuts.find(v=>String(v.id||'')===b.dataset.shortcutId);if(!x)return;let terms=shortcutTerms(x);activeCat=isRealProductCategory(x.cat)?x.cat:'全部';activeShortcutSearchTerms=terms.length?terms:(isRealProductCategory(x.cat)?[]:[x.cat]);$('#search').value=activeShortcutSearchTerms.join('、');renderChips();renderProducts()})};
+
+editShortcut=function(id){let x=state.shortcuts.find(v=>v.id===id);if(!x)return;$('#shortcutLabel').value=x.label;$('#shortcutCat').value=x.cat;$('#shortcutKeywords').value=x.keywords||'';let color=x.color||defaultShortcutColor(x.cat);$('#shortcutColorText').value=color;$('#shortcutColor').value=color;$('#addShortcut').dataset.editId=id;$('#addShortcut').textContent='更新快捷';$('#cancelShortcutEdit').classList.remove('hidden')};
+saveShortcut=function(){let label=$('#shortcutLabel').value.trim(),cat=$('#shortcutCat').value.trim(),keywords=$('#shortcutKeywords').value.trim(),color=$('#shortcutColorText').value.trim(),id=$('#addShortcut').dataset.editId;if(!label||!cat)return showToast('請填寫快捷名稱與對應分類。',{type:'warn'});if(!/^#[0-9a-f]{6}$/i.test(color))return showToast('顏色格式需為 #0f766e。',{type:'warn'});if(id){let i=state.shortcuts.findIndex(x=>x.id===id);state.shortcuts[i]={...state.shortcuts[i],label,cat,keywords,color}}else state.shortcuts.push({id:'shortcut-'+Date.now(),label,cat,keywords,color});resetShortcutEditor();persist();renderAdmin();renderChips();showToast(id?'快捷篩選已更新。':'快捷篩選已新增。')};
+$('#addShortcut').onclick=saveShortcut;$('#cancelShortcutEdit').onclick=()=>{resetShortcutEditor();showToast('已取消快捷編輯。')};
+
+const renderAdminV360=renderAdmin;
+renderAdmin=function(){renderAdminV360();$$('#shortcutList [data-se]').forEach(b=>{let item=state.shortcuts.find(x=>x.id===b.dataset.se),title=b.closest('.manage-item')?.querySelector('b');if(item&&title&&!title.querySelector('.shortcut-color-dot'))title.insertAdjacentHTML('afterbegin',`<span class="shortcut-color-dot" style="background:${item.color||defaultShortcutColor(item.cat)}"></span>`)})};
+renderChips();renderAdmin();
 </script></body></html>
