@@ -54,7 +54,11 @@ Deno.serve(async (req) => {
         id: String(p.id), cat: String(p.cat || ''), name: String(p.name || ''), variant: String(p.variant || ''),
         price: Number(p.price || 0), outOfStock: !!p.outOfStock, displayColor: String(p.displayColor || ''),
       }))
-      return { products, settings: state.settings || {}, template: (state.templates || []).find((t: any) => t.id === state.activeTemplateId) || null }
+      const shortcuts = (state.shortcuts || []).map((x: any, index: number) => ({
+        id: String(x.id || `shortcut-${index}`), label: String(x.label || ''), cat: String(x.cat || '全部'),
+        keywords: String(x.keywords || ''), color: /^#[0-9a-f]{6}$/i.test(String(x.color || '')) ? String(x.color) : '#0f766e',
+      })).filter((x: any) => x.label)
+      return { products, shortcuts, settings: state.settings || {}, template: (state.templates || []).find((t: any) => t.id === state.activeTemplateId) || null }
     }
     const calculate = async (rawItems: any[]) => {
       const catalog = await publicCatalog(), map = new Map(catalog.products.map((p: any) => [p.id, p]))
