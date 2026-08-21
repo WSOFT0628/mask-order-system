@@ -8,7 +8,11 @@
 - [買家訂購頁](https://wsoft0628.github.io/mask-order-system/order.html)
 - [買家訂單查詢](https://wsoft0628.github.io/mask-order-system/my-orders.html)
 
-> 買家訂購頁需搭配活動代碼，例如：`order.html?campaign=活動代碼`。\n\n## 版本歷程\n\n- [查看從 v1.5.4 至今的完整更新紀錄](CHANGELOG.md)
+> 買家訂購頁需搭配活動代碼，例如：`order.html?campaign=活動代碼`。
+
+## 版本歷程
+
+- [查看從 v1.5.4 至今的完整更新紀錄](CHANGELOG.md)
 
 ## 主要功能
 
