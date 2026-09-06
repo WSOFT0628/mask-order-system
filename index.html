@@ -3267,8 +3267,8 @@ const dashboardBrandText=document.querySelector('.topin>.logo+div');
 function returnToDashboard(){go('dashboard');window.scrollTo({top:0,behavior:'smooth'})}
 [dashboardBrandLogo,dashboardBrandText].forEach(el=>{if(!el)return;el.style.cursor='pointer';el.setAttribute('role','button');el.setAttribute('tabindex','0');el.setAttribute('aria-label','返回智慧儀表板首頁');el.setAttribute('title','返回智慧儀表板首頁');el.onclick=returnToDashboard;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();returnToDashboard()}}});
 </script><script>
-/* v3.6.3：雲端同步完成後自動載入智慧儀表板，不再需要手動再按一次重新整理。 */
-APP_VERSION='3.6.3';document.title='口罩訂購助手 v3.6.3';if(versionLabel)versionLabel.textContent='v3.6.3';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.6.3';$('#aboutModal h2').textContent='口罩訂購助手 v3.6.3';
+/* v3.6.4：活動截止即時鎖定買家頁，買家退訂同步通知管理員。 */
+APP_VERSION='3.6.4';document.title='口罩訂購助手 v3.6.4';if(versionLabel)versionLabel.textContent='v3.6.4';$('#menuAbout').textContent='ⓘ　關於口罩訂購助手 v3.6.4';$('#aboutModal h2').textContent='口罩訂購助手 v3.6.4';
 let dashboardHydrateTimer=0,dashboardHydrateRunning=false,dashboardHydratedAt=0;
 function showDashboardSyncing(){if(!cloudSession||cloudReady)return;['#dashActiveCampaigns','#dashPendingOrders','#dashBuyerQty'].forEach(id=>$(id).textContent='…');$('#dashBuyerTotal').textContent='…';$('#dashCampaignList').innerHTML='<div class="dashboard-empty">正在同步活動資料…</div>';$('#dashRecentOrders').innerHTML='<div class="dashboard-empty">正在同步買家訂單…</div>';$('#dashAlerts').innerHTML='<div class="dashboard-empty">正在整理待處理事項…</div>'}
 function scheduleDashboardHydration(attempt=0){clearTimeout(dashboardHydrateTimer);dashboardHydrateTimer=setTimeout(async()=>{if(!cloudReady)return;if(!hasPermission('record_view')){if(attempt<12)scheduleDashboardHydration(attempt+1);return}if(dashboardHydrateRunning||Date.now()-dashboardHydratedAt<2500)return;dashboardHydrateRunning=true;try{await refreshDashboard({silent:true});dashboardHydratedAt=Date.now()}finally{dashboardHydrateRunning=false}},attempt?150:0)}
