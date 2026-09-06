@@ -54,11 +54,7 @@ Deno.serve(async (req) => {
         id: String(p.id), cat: String(p.cat || ''), name: String(p.name || ''), variant: String(p.variant || ''),
         price: Number(p.price || 0), outOfStock: !!p.outOfStock, displayColor: String(p.displayColor || ''),
       }))
-      const shortcuts = (state.shortcuts || []).map((x: any, index: number) => ({
-        id: String(x.id || `shortcut-${index}`), label: String(x.label || ''), cat: String(x.cat || '全部'),
-        keywords: String(x.keywords || ''), color: /^#[0-9a-f]{6}$/i.test(String(x.color || '')) ? String(x.color) : '#0f766e',
-      })).filter((x: any) => x.label)
-      return { products, shortcuts, settings: state.settings || {}, template: (state.templates || []).find((t: any) => t.id === state.activeTemplateId) || null }
+      return { products, settings: state.settings || {}, template: (state.templates || []).find((t: any) => t.id === state.activeTemplateId) || null }
     }
     const calculate = async (rawItems: any[]) => {
       const catalog = await publicCatalog(), map = new Map(catalog.products.map((p: any) => [p.id, p]))
@@ -155,7 +151,16 @@ Deno.serve(async (req) => {
       if (action === 'fetch' || action === 'lookup') return reply({ order: { order_no: order.order_no,customer: order.customer,items: order.items,total_qty: order.total_qty,subtotal: order.subtotal,shipping: order.shipping,tax: order.tax,total: order.total,status: order.status,created_at: order.created_at }, campaign: { name: campaign.name,slug: campaign.slug,allow_edit: campaign.allow_edit,active: campaignOpen(campaign) } })
       if (!campaign.allow_edit || !campaignOpen(campaign) || ['aggregated','completed','cancelled'].includes(order.status)) return reply({ error: 'ORDER_LOCKED' }, 400)
       if (action === 'cancel') {
-        await db.from('mask_buyer_orders').update({ status: 'cancelled', buyer_updated_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', order.id)
+        const cancelledAt = new Date().toISOString()
+        const { error } = await db.from('mask_buyer_orders').update({ status: 'cancelled', buyer_updated_at: cancelledAt, updated_at: cancelledAt }).eq('id', order.id)
+        if (error) throw error
+        try {
+          await db.from('mask_notifications').insert({
+            event_key: `buyer-cancel-${orderNo}`, level: 'warn', title: '買家已取消訂單',
+            body: `${String(order.customer?.name || '買家')}｜${Number(order.total_qty || 0)} 盒｜${orderNo}`,
+            link: 'buyerOrders', audience_role: 'admin',
+          })
+        } catch { /* 通知失敗不影響退訂結果 */ }
         return reply({ ok: true })
       }
       const rawCustomer = input.customer || {}, name = String(rawCustomer.name || '').trim(), phone = String(rawCustomer.phone || '').trim()
